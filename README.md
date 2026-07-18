@@ -20,7 +20,11 @@ copy .env.example .env   # preencher GLPI_APP_TOKEN / GLPI_USER_TOKEN
 ti-analytics coletar
 ```
 
-## Documentação de apoio
+## Pendências
+
+Ver `CHECKLIST.md` na raiz — verificação ainda não feita (Docker Compose de ponta a ponta, conferência visual no navegador) e decisões de produto em aberto.
+
+## Documentação de apoio (planejada, ainda vazia)
 
 - `docs/data_catalog/` — dicionário de dados das tabelas GLPI usadas.
 - `docs/semantic_model/` — definição formal de cada sub-score.

@@ -100,13 +100,11 @@ cd frontend && npm run dev   # ja usa --webpack (ver "Problemas conhecidos")
 - 27 testes pytest (transforms, scores, snapshot, reopens, schema_validate, entities).
 
 ### Pendente / decisões em aberto
-- **Hospedagem definitiva**: v1 roda local (coleta manual + docker-compose local). Falta decidir se/quando migra pra um host fixo na rede do hospital.
-- **Agendamento automático da coleta**: hoje só manual (`ti-analytics coletar` ou `POST /admin/collect`). Se o volume justificar, adicionar um scheduler tipo `api/app/scheduler.py` do fifa_analytics.
-- **`score_qualidade` (reabertura)**: `foi_reaberto` já é coletado e exposto no perfil do técnico, mas ainda não entra em `score_geral` — avaliar depois de mais semanas de dado se o sinal é forte/estável o bastante pra pesar.
-- Sem autenticação/login — acesso é só rede interna. Adicionar se decidirem que precisa.
+
+**Ver `CHECKLIST.md` na raiz** — lista viva do que falta verificar (Docker Compose nunca rodou de ponta a ponta, ninguém confirmou o frontend num navegador de verdade) e das decisões de produto ainda em aberto (hospedagem definitiva, agendamento automático, se `foi_reaberto` entra em `score_geral`, autenticação). Ao começar uma sessão nova neste repo, ler esse arquivo primeiro — ele é descartável assim que tudo lá for resolvido, então pode já ter mudado desde a última vez.
 
 ## Problemas conhecidos
 
 - **Turbopack quebra no build/dev** por causa do acento em `Repositórios` no caminho do repo (bug do Turbopack com paths não-ASCII, não é bug do nosso código). `frontend/package.json` já usa `--webpack` nos scripts `dev`/`build` por causa disso — não tirar essa flag enquanto o repo estiver sob esse caminho.
 - `.venv` não versionado — criar com `python -m venv .venv` antes de rodar qualquer coisa.
-- Verificação de UI feita só via build/type-check + curl das rotas (sem browser real disponível no ambiente de desenvolvimento) — abrir no navegador antes de considerar o frontend definitivamente validado visualmente.
+- Verificação de UI feita só via build/type-check + curl das rotas (sem browser real disponível no ambiente que construiu isso) — ver `CHECKLIST.md`.
