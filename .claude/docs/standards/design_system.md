@@ -93,6 +93,8 @@ Classes utilitárias próprias do sistema (definidas em `globals.css`, usadas vi
 | `RankBadge.tsx` | selo numerado com cor de medalha (top 3) | `RankingRace` |
 | `Bar.tsx` | trilho + preenchimento animado | `RankingRace`, `TechnicianModal` (sub-scores) |
 | `ConfidenceBadge.tsx` | dot + label de nível de evidência | `TechnicianCard`, `TechnicianModal` |
+| `FilterChip.tsx` | botão de filtro toggle (preenchido quando ativo) | `RankingRace` (papel), `GranularidadeSwitcher` (Header) |
+| `Botao.tsx` | botão de ação (`primario`/`secundario`/`destrutivo`) | `/admin` (login, coleta, pesos) |
 
 Regra: **extrair primitivo só quando o mesmo padrão visual se repete em 2+ lugares** (foi assim que
 os 5 acima nasceram — não existe biblioteca de componentes especulativa aqui). Não copiar 1:1 os 16
