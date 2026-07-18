@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from ti_analytics.analytics.scores import TECH_SCORE_WEIGHTS, build_tech_scores
+from ti_analytics.analytics.scores import build_tech_scores, load_weights
 from ti_analytics.paths import GOLD_DIR
 from ti_analytics.utils.io import write_json
 
@@ -96,4 +96,4 @@ def build_all_snapshots(wide: pd.DataFrame, dim_tecnico: pd.DataFrame) -> pd.Dat
 
 
 def save_weights() -> None:
-    write_json(GOLD_DIR / "analytics" / "weights.json", {"tipo": "fixo", "pesos": TECH_SCORE_WEIGHTS})
+    write_json(GOLD_DIR / "analytics" / "weights.json", {"tipo": "configuravel", "pesos": load_weights()})

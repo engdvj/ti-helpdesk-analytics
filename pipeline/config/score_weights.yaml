@@ -1,0 +1,5 @@
+score_volume: 0.3
+score_velocidade_resolucao: 0.25
+score_complexidade: 0.2
+score_velocidade_resposta: 0.15
+score_abrangencia: 0.1

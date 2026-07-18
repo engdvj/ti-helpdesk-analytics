@@ -26,6 +26,10 @@ from __future__ import annotations
 
 import pandas as pd
 
+from ti_analytics.config import load_config
+from ti_analytics.utils.io import write_yaml
+from ti_analytics.paths import CONFIG_DIR
+
 TECH_SCORE_WEIGHTS: dict[str, float] = {
     "score_volume": 0.30,
     "score_velocidade_resolucao": 0.25,
@@ -33,6 +37,20 @@ TECH_SCORE_WEIGHTS: dict[str, float] = {
     "score_velocidade_resposta": 0.15,
     "score_abrangencia": 0.10,
 }
+
+
+def load_weights() -> dict[str, float]:
+    """Pesos em uso agora: `pipeline/config/score_weights.yaml` se existir
+    (editavel pelo painel /admin), senao o default hardcoded acima."""
+    try:
+        configured = load_config("score_weights.yaml")
+    except FileNotFoundError:
+        return dict(TECH_SCORE_WEIGHTS)
+    return configured or dict(TECH_SCORE_WEIGHTS)
+
+
+def save_weights_config(weights: dict[str, float]) -> None:
+    write_yaml(CONFIG_DIR / "score_weights.yaml", weights)
 
 FULL_CONF_TICKETS = 15.0  # chamados credit-weighted no periodo p/ confianca plena
 
@@ -81,7 +99,7 @@ def build_tech_scores(
     (inclusive pra Ananda/taticos, que ainda recebem nota propria no perfil
     deles) reusam o mesmo `ref_stats` sem filtrar.
     """
-    weights = weights or TECH_SCORE_WEIGHTS
+    weights = weights or load_weights()
     ref_stats = ref_stats if ref_stats is not None else {}
 
     solved = wide[wide["is_solved"]] if not wide.empty else wide
