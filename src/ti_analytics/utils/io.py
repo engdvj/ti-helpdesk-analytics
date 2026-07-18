@@ -3,6 +3,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pandas as pd
 import yaml
@@ -30,8 +31,16 @@ def read_json(path: str | Path) -> Any:
 def write_yaml(path: str | Path, data: Any) -> Path:
     path = Path(path)
     ensure_dir(path.parent)
-    with path.open("w", encoding="utf-8") as file:
-        yaml.safe_dump(data, file, sort_keys=False, allow_unicode=True)
+    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}.{uuid4().hex}")
+    try:
+        with tmp.open("w", encoding="utf-8") as file:
+            yaml.safe_dump(data, file, sort_keys=False, allow_unicode=True)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
     return path
 
 
