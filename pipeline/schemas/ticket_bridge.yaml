@@ -1,0 +1,6 @@
+# Schema de bridge_chamado_tecnico (1 linha por tecnico atribuido por chamado).
+columns:
+  tickets_id: {nullable: false}
+  users_id: {nullable: false}
+  peso_credito: {nullable: false}
+  n_tecnicos_atribuidos: {nullable: false}

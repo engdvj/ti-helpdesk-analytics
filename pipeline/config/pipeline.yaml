@@ -1,0 +1,18 @@
+grupo_ti:
+  nome: "Tecnologia da Informação"
+
+granularidades:
+  - diaria_acumulada   # tambem serve como visao "acumulado geral"
+  - semanal
+  - mensal
+
+status:
+  # Vocabulario GLPI padrao (id -> rotulo pt-BR), so pra exibicao/logs.
+  1: novo
+  2: processando_atribuido
+  3: processando_planejado
+  4: pendente
+  5: solucionado
+  6: fechado
+
+solved_threshold: 5   # status >= isso conta como "terminado" (fechado e raro nesta base)

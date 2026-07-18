@@ -1,0 +1,13 @@
+# Papel dos membros da equipe de TI. So aqui, nunca em codigo.
+#
+# O GLPI so distingue "Supervisor" (perfil) de "Plantonista" (perfil) - nao
+# existe nenhum campo pra "tecnico tatico". default_por_profile cobre o caso
+# comum; overrides captura as excecoes conhecidas por fora do GLPI.
+
+default_por_profile:
+  Supervisor: coordenadora
+  Plantonista: plantonista
+
+overrides:
+  22: tatico   # ti-davi
+  50: tatico   # ti-julia

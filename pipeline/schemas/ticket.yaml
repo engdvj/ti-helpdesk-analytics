@@ -1,0 +1,14 @@
+# Schema de fact_chamado (um chamado GLPI ja filtrado pras entidades de TI).
+columns:
+  tickets_id: {nullable: false}
+  entities_id: {nullable: false}
+  itilcategories_id: {nullable: true}   # 99.8% preenchido na base real, mas nao 100%
+  date: {nullable: true}
+  solvedate: {nullable: true}           # null enquanto nao solucionado
+  status: {nullable: false}
+  is_solved: {nullable: false}
+  urgency: {nullable: true}
+  priority: {nullable: true}
+  takeintoaccount_delay_stat: {nullable: true}
+  solve_delay_stat: {nullable: true}
+  collected_at: {nullable: false}

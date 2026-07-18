@@ -1,0 +1,9 @@
+# Schema de dim_tecnico.
+columns:
+  users_id: {nullable: false}
+  username: {nullable: false}
+  nome_completo: {nullable: false}
+  glpi_profile: {nullable: true}
+  papel: {nullable: false}
+  ativo: {nullable: false}
+  collected_at: {nullable: false}
