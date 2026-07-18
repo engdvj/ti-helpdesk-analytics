@@ -1,10 +1,16 @@
 grupo_ti:
   nome: "Tecnologia da Informação"
 
+categorias_ti:
+  raiz: "Tecnologia da Informação"
+
 granularidades:
-  - diaria_acumulada   # tambem serve como visao "acumulado geral"
+  - diaria
   - semanal
   - mensal
+# Cada granularidade acima cruza com cumulativo=true/false (build_snapshots em
+# analytics/snapshot.py) - diaria+cumulativo=true tambem serve como visao
+# "acumulado geral". Chave nao lida por codigo, so documentacao.
 
 status:
   # Vocabulario GLPI padrao (id -> rotulo pt-BR), so pra exibicao/logs.

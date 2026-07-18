@@ -8,6 +8,7 @@ from __future__ import annotations
 import pandas as pd
 
 from ti_analytics.analytics.reopens import detect_reopened
+from ti_analytics.glpi.solution_quality import solution_quality_score
 from ti_analytics.utils.schema_validate import validate_dataframe
 from ti_analytics.utils.time import utc_now_iso
 
@@ -112,9 +113,32 @@ def normalize_reopened_flags(ticket_logs: dict[int, list[dict]]) -> pd.DataFrame
     return pd.DataFrame(rows)
 
 
+def normalize_solution_quality(ticket_solutions: dict[int, list[dict]]) -> pd.DataFrame:
+    """tickets_id -> resposta_qualidade (0-100), a partir do ITILSolution mais
+    recente do chamado (ver glpi/solution_quality.py pra heuristica). Chamado
+    sem nenhuma ITILSolution registrada entra com 0 - nao documentar a
+    solucao conta como resposta ruim, nao como "sem dado"."""
+    rows = []
+    for tid, solutions in ticket_solutions.items():
+        content = None
+        if solutions:
+            last = solutions[-1]
+            content = last.get("content") if isinstance(last, dict) else None
+        rows.append({"tickets_id": tid, "resposta_qualidade": solution_quality_score(content)})
+    return pd.DataFrame(rows)
+
+
 def normalize_categories(categories_raw: list[dict]) -> pd.DataFrame:
+    """`categoria_completa` e o `completename` do GLPI ("Telefonia > Reparos")
+    - mesmo campo que `entities.py` ja usa pra unidade (CommonTreeDropdown
+    padrao do GLPI). Nome de folha sozinho e ambiguo (varias categorias-pai
+    tem uma sub-categoria "Reparos"/"Outros"), completename desambigua."""
     rows = [
-        {"itilcategories_id": c["id"], "categoria_nome": c.get("name") or ""}
+        {
+            "itilcategories_id": c["id"],
+            "categoria_nome": c.get("name") or "",
+            "categoria_completa": c.get("completename") or c.get("name") or "",
+        }
         for c in categories_raw
         if isinstance(c, dict) and "id" in c
     ]

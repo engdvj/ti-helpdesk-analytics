@@ -80,6 +80,23 @@ def api_request(
     return body
 
 
+def fetch_binary(cfg: GlpiConfig, endpoint: str, session_token: str) -> bytes | None:
+    """GET que devolve bytes crus (nao JSON) - usado so pra foto de usuario
+    (/User/{id}/Picture devolve o JPEG direto, nao um envelope JSON). None
+    se o usuario nao tiver foto (404) ou qualquer outro erro HTTP."""
+    url = cfg.api_url + endpoint
+    req = urllib.request.Request(
+        url, headers={"App-Token": cfg.app_token, "Session-Token": session_token}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.read()
+    except urllib.error.HTTPError:
+        return None
+    except urllib.error.URLError:
+        return None
+
+
 def get_paginated(cfg: GlpiConfig, endpoint: str, session_token: str) -> list[dict]:
     """Busca todas as paginas de um endpoint de listagem, via Content-Range.
 
