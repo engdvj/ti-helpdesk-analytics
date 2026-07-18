@@ -1219,6 +1219,9 @@ function ActivityForm({
   editing: boolean;
   activityTypes: CompetencyActivityTypeDefinition[];
 }) {
+  const scopeOptionsValid = !["radio", "selecao", "multipla_selecao"].includes(draft.escopo_tipo_campo)
+    || (draft.escopo_opcoes.length >= 2 && draft.escopo_opcoes.every((option) => option.rotulo.trim().length > 0));
+
   return (
     <form className="competency-catalog-form" onSubmit={onSubmit}>
       <div className="competency-form-heading">
@@ -1233,7 +1236,7 @@ function ActivityForm({
         <label>
           <span>Tipo da atividade</span>
           <select value={draft.tipo} onChange={(event) => onChange({ ...draft, tipo: event.target.value as CompetencyActivityType })}>
-            {activityTypes.map((type) => <option key={type.slug} value={type.slug}>{type.nome}{type.ativa ? "" : " (inativo)"}</option>)}
+            {activityTypes.map((type) => <option key={type.slug} value={type.slug} disabled={!type.ativa && type.slug !== draft.tipo}>{type.nome}{type.ativa ? "" : " (inativo)"}</option>)}
           </select>
           <small>{activityTypes.find((type) => type.slug === draft.tipo)?.descricao || "Agrupa atividades semelhantes."}</small>
         </label>
@@ -1258,7 +1261,7 @@ function ActivityForm({
         })}
       />
       <div className="competency-form-actions">
-        <Botao type="submit" variant="primario" disabled={saving}>{saving ? "Salvando..." : "Salvar atividade"}</Botao>
+        <Botao type="submit" variant="primario" disabled={saving || !scopeOptionsValid}>{saving ? "Salvando..." : "Salvar atividade"}</Botao>
         <Botao type="button" onClick={onCancel} disabled={saving}>Cancelar</Botao>
       </div>
     </form>
@@ -1280,6 +1283,14 @@ function SituationForm({
   saving: boolean;
   editing: boolean;
 }) {
+  const procedureHasValue = draft.procedimento_tipo_campo === "multipla_selecao"
+    ? Array.isArray(draft.procedimento_valor) && draft.procedimento_valor.length > 0
+    : typeof draft.procedimento_valor === "string" && draft.procedimento_valor.trim().length > 0;
+  const procedureOptionsValid = !["radio", "selecao", "multipla_selecao"].includes(draft.procedimento_tipo_campo)
+    || (draft.procedimento_opcoes.length >= 2 && draft.procedimento_opcoes.every((option) => option.rotulo.trim().length > 0));
+  const assessmentOptionsValid = !["radio", "selecao", "multipla_selecao"].includes(draft.tipo_campo)
+    || (draft.opcoes.length >= 2 && draft.opcoes.every((option) => option.rotulo.trim().length > 0 && option.pontos <= draft.pontos_maximos));
+
   return (
     <form className="competency-catalog-form is-situation" onSubmit={onSubmit}>
       <div className="competency-form-heading">
@@ -1390,7 +1401,7 @@ function SituationForm({
       )}
       {draft.tipo_campo === "sim_nao" && <p className="competency-field-hint">Sim concede {points(draft.pontos_maximos)} pontos; não concede zero.</p>}
       <div className="competency-form-actions">
-        <Botao type="submit" variant="primario" disabled={saving}>{saving ? "Salvando..." : "Salvar situação"}</Botao>
+        <Botao type="submit" variant="primario" disabled={saving || !procedureHasValue || !procedureOptionsValid || !assessmentOptionsValid}>{saving ? "Salvando..." : "Salvar situação"}</Botao>
         <Botao type="button" onClick={onCancel} disabled={saving}>Cancelar</Botao>
       </div>
     </form>
