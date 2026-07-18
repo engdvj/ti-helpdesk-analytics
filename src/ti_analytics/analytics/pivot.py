@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import pandas as pd
 
+from ti_analytics.analytics.complexity import (
+    apply_category_difficulty_overrides,
+    compute_category_difficulty,
+)
+
 WIDE_COLUMNS = [
     "tickets_id", "users_id", "peso_credito", "n_tecnicos_atribuidos",
     "entities_id", "itilcategories_id", "date", "solvedate", "status",
     "is_solved", "urgency", "priority", "takeintoaccount_delay_stat",
-    "solve_delay_stat", "foi_reaberto",
+    "solve_delay_stat", "foi_reaberto", "resposta_qualidade",
+    "dificuldade_categoria",
 ]
 
 
@@ -26,5 +32,23 @@ def build_wide_chamado_tecnico(
     # so tecnicos que ainda existem em dim_tecnico (evita linha fantasma se um
     # usuario saiu do grupo entre coletas)
     wide = wide[wide["users_id"].isin(dim_tecnico["users_id"])]
+
+    # dificuldade_categoria e calculada sobre TODO fact_chamado (baseline
+    # historica, nao so os chamados dessa bridge), com override manual do
+    # admin por cima quando existir - ver analytics/complexity.py.
+    difficulty = compute_category_difficulty(fact_chamado)
+    difficulty = apply_category_difficulty_overrides(difficulty)
+    # Um lote pode conter somente chamados sem categoria, deixando a coluna
+    # da esquerda como object (apenas None), enquanto overrides manuais usam
+    # IDs inteiros. Normalizar ambos evita merge incompatível e preserva NA.
+    wide["itilcategories_id"] = pd.to_numeric(
+        wide["itilcategories_id"], errors="coerce"
+    ).astype("Int64")
+    difficulty["itilcategories_id"] = pd.to_numeric(
+        difficulty["itilcategories_id"], errors="coerce"
+    ).astype("Int64")
+    wide = wide.merge(difficulty, on="itilcategories_id", how="left")
+    wide["dificuldade_categoria"] = wide["dificuldade_categoria"].fillna(1.0)
+
     cols = [c for c in WIDE_COLUMNS if c in wide.columns]
     return wide[cols].reset_index(drop=True)
