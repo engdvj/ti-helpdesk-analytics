@@ -10,3 +10,7 @@ class TechnicianOut(BaseModel):
     glpi_profile: str
     papel: str
     ativo: bool
+    unidade_slug: str | None = None
+    foto: str | None = None
+    foto_fonte: str | None = None
+    nome_exibicao: str | None = None

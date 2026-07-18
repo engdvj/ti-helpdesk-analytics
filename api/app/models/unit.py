@@ -1,7 +1,7 @@
 """Unidade hospitalar (HGVC, UPA, ...) - equivalente a Competition no
 fifa_analytics, mas sem particionar dado em disco por unidade (ver
-CLAUDE.md): a mesma equipe de tecnicos atende todas as unidades ao mesmo
-tempo, entao a visao primaria e o ranking GERAL combinado, com `unidade`
+CLAUDE.md). Tecnicos podem ser lotados em uma unidade ou no complexo
+inteiro; a visao GERAL combina todos os tecnicos ativos e `unidade` segue
 como coluna filtravel nos parquets, nao como diretorio separado.
 
 Seedada no startup a partir da descoberta dinamica de entidades GLPI
