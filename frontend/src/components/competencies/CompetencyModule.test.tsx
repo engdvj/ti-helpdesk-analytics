@@ -188,8 +188,13 @@ describe("CompetencyModule", () => {
     expect(screen.getByRole("combobox", { name: "Filtrar atividades por tipo" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Ordenar atividades" })).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Gerenciar tipos" }));
+    expect(screen.getByText("Tipos de atividade")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Novo tipo" })).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Nova atividade" }));
     expect(screen.getByLabelText(/Tipo da atividade/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Formato do campo/)).toHaveValue("texto_longo");
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Expandir Impressoras" }));
