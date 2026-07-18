@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* Sistema de tokens "Sumula" (decalcado da branch multicampeonato do
+   fifa_analytics) - nomes semanticos, valores diferentes por tema (dark nao
+   e so light invertido). --grama (verde de gramado) virou --acento, com uma
+   cor azul/teal mais adequada a um contexto hospitalar/TI. */
+:root {
+  --papel: #f2efe6;
+  --superficie: #faf8f1;
+  --tinta: #1c2620;
+  --apagado: #6b7568;
+  --acento: #1f6f78;
+  --acento-suave: #dde7e7;
+  --aviso: #b8860f;
+  --aviso-suave: #ede0c0;
+  --critico: #8f2a26;
+  --critico-suave: #ecdcd8;
+  --linha: #c7bfa8;
+  --linha-forte: #a89d7d;
+
+  --fonte-placar: clamp(2.25rem, 1.7rem + 3vw, 3.75rem);
+  --fonte-titulo: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+  --fonte-h: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
+  --fonte-corpo: clamp(0.9375rem, 0.875rem + 0.25vw, 1rem);
+  --fonte-label: clamp(0.6875rem, 0.66rem + 0.15vw, 0.75rem);
+  --fonte-dados: clamp(0.75rem, 0.72rem + 0.15vw, 0.8125rem);
+
+  --largura-estreita: 560px;
+  --largura-media: 880px;
+  --largura-hub: 62rem;
+}
+
+:root[data-theme="dark"] {
+  --papel: #0d1117;
+  --superficie: #161b22;
+  --tinta: #e6edf3;
+  --apagado: #8b949e;
+  --acento: #58a6ff;
+  --acento-suave: #1c2b3f;
+  --aviso: #d29922;
+  --aviso-suave: #33291a;
+  --critico: #f85149;
+  --critico-suave: #3a2222;
+  --linha: #30363d;
+  --linha-forte: #3d4450;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papel: #0d1117;
+    --superficie: #161b22;
+    --tinta: #e6edf3;
+    --apagado: #8b949e;
+    --acento: #58a6ff;
+    --acento-suave: #1c2b3f;
+    --aviso: #d29922;
+    --aviso-suave: #33291a;
+    --critico: #f85149;
+    --critico-suave: #3a2222;
+    --linha: #30363d;
+    --linha-forte: #3d4450;
+  }
+}
+
+@theme inline {
+  --color-background: var(--papel);
+  --color-foreground: var(--tinta);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--linha) transparent;
+}
+
+body {
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--font-sans);
+  font-size: var(--fonte-corpo);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--linha);
+}
+
+.sumula-container-estreita,
+.sumula-container-media,
+.sumula-container-hub {
+  margin: 0 auto;
+  padding: 1.75rem clamp(1rem, 4vw, 2rem);
+}
+.sumula-container-estreita { max-width: var(--largura-estreita); }
+.sumula-container-media { max-width: var(--largura-media); }
+.sumula-container-hub { max-width: var(--largura-hub); }
+
+.sumula-cartao {
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 0;
+}
+
+.sumula-carimbo {
+  display: inline-block;
+  transform: rotate(-3deg);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--fonte-label);
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--linha-forte);
+  background: var(--acento-suave);
+  color: var(--acento);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
