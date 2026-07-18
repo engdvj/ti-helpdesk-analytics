@@ -23,7 +23,7 @@ class CompetencyActivityType(Base):
     __tablename__ = "competency_activity_types"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    slug: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     nome: Mapped[str] = mapped_column(String(120))
     descricao: Mapped[str] = mapped_column(Text, default="")
     cor: Mapped[str] = mapped_column(String(20), default="#58a6ff")

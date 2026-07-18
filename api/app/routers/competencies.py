@@ -40,7 +40,22 @@ router = APIRouter(prefix="/competencies", tags=["competencies"])
 
 def _slugify(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")[:40].rstrip("-")
+
+
+def _require_activity_type(db: Session, slug: str) -> CompetencyActivityType:
+    activity_type = db.scalar(
+        select(CompetencyActivityType).where(CompetencyActivityType.slug == slug)
+    )
+    if activity_type is None or not activity_type.ativa:
+        raise HTTPException(422, "Selecione um tipo de atividade ativo.")
+    return activity_type
+
+
+def _content_value(value: str | list[str] | None, fallback: str, field_type: str):
+    if value is None and field_type in {"texto_curto", "texto_longo"}:
+        return fallback
+    return value
 
 
 def _catalog(db: Session, include_inactive: bool = False) -> list[CompetencyActivity]:
@@ -63,7 +78,7 @@ def _activity_out(activity: CompetencyActivity, include_inactive: bool = False) 
         tipo=activity.tipo,
         escopo_tipo_campo=activity.escopo_tipo_campo,
         escopo_opcoes=activity.escopo_opcoes or [],
-        escopo_valor=activity.escopo_valor,
+        escopo_valor=_content_value(activity.escopo_valor, activity.descricao, activity.escopo_tipo_campo),
         ordem=activity.ordem,
         ativa=activity.ativa,
         situacoes=[_situation_out(s) for s in situations],
@@ -79,7 +94,11 @@ def _situation_out(situation: CompetencySituation) -> CompetencySituationOut:
         procedimento_esperado=situation.procedimento_esperado,
         procedimento_tipo_campo=situation.procedimento_tipo_campo,
         procedimento_opcoes=situation.procedimento_opcoes or [],
-        procedimento_valor=situation.procedimento_valor,
+        procedimento_valor=_content_value(
+            situation.procedimento_valor,
+            situation.procedimento_esperado,
+            situation.procedimento_tipo_campo,
+        ),
         pontos_maximos=situation.pontos_maximos,
         tipo_campo=situation.tipo_campo,
         opcoes=situation.opcoes or [],
@@ -229,6 +248,7 @@ def delete_activity_type(type_id: int, db: Session = Depends(get_db)):
     dependencies=[Depends(require_admin)],
 )
 def create_activity(payload: CompetencyActivityCreate, db: Session = Depends(get_db)):
+    _require_activity_type(db, payload.tipo)
     activity = CompetencyActivity(**payload.model_dump())
     db.add(activity)
     db.commit()
@@ -247,6 +267,8 @@ def update_activity(activity_id: int, payload: CompetencyActivityUpdate, db: Ses
         raise HTTPException(404, "Atividade não encontrada.")
     updates = payload.model_dump(exclude_unset=True)
     active_update = updates.pop("ativa", None)
+    if "tipo" in updates and updates["tipo"] != activity.tipo:
+        _require_activity_type(db, updates["tipo"])
     candidate = CompetencyActivityCreate.model_validate({
         "nome": updates.get("nome", activity.nome),
         "descricao": updates.get("descricao", activity.descricao),
@@ -412,7 +434,11 @@ def technician_competencies(users_id: int, db: Session = Depends(get_db)):
                 procedimento_esperado=situation.procedimento_esperado,
                 procedimento_tipo_campo=situation.procedimento_tipo_campo,
                 procedimento_opcoes=situation.procedimento_opcoes or [],
-                procedimento_valor=situation.procedimento_valor,
+                procedimento_valor=_content_value(
+                    situation.procedimento_valor,
+                    situation.procedimento_esperado,
+                    situation.procedimento_tipo_campo,
+                ),
                 pontos_maximos=situation.pontos_maximos,
                 tipo_campo=situation.tipo_campo,
                 opcoes=situation.opcoes or [],
@@ -429,7 +455,7 @@ def technician_competencies(users_id: int, db: Session = Depends(get_db)):
             descricao=activity.descricao,
             escopo_tipo_campo=activity.escopo_tipo_campo,
             escopo_opcoes=activity.escopo_opcoes or [],
-            escopo_valor=activity.escopo_valor,
+            escopo_valor=_content_value(activity.escopo_valor, activity.descricao, activity.escopo_tipo_campo),
             pontos=round(points, 1),
             pontos_maximos=round(max_points, 1),
             percentual=round(points / max_points * 100, 1) if max_points else 0,

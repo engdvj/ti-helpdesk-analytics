@@ -43,7 +43,7 @@ def _validate_content_field(
 
 class CompetencyActivityTypeCreate(BaseModel):
     nome: str = Field(min_length=2, max_length=120)
-    slug: str | None = Field(default=None, min_length=2, max_length=60, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    slug: str | None = Field(default=None, min_length=2, max_length=40, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     descricao: str = Field(default="", max_length=1000)
     cor: str = Field(default="#58a6ff", pattern=r"^#[0-9a-fA-F]{6}$")
     ordem: int = 0
@@ -78,7 +78,7 @@ class CompetencyOption(BaseModel):
 class CompetencyActivityCreate(BaseModel):
     nome: str = Field(min_length=2, max_length=180)
     descricao: str = Field(default="", max_length=4000)
-    tipo: str = Field(default="operacional", min_length=2, max_length=60)
+    tipo: str = Field(default="operacional", min_length=2, max_length=40)
     escopo_tipo_campo: CompetencyContentFieldType = "texto_longo"
     escopo_opcoes: list[CompetencyContentOption] = Field(default_factory=list, max_length=30)
     escopo_valor: str | list[str] | None = None
@@ -93,7 +93,7 @@ class CompetencyActivityCreate(BaseModel):
 class CompetencyActivityUpdate(BaseModel):
     nome: str | None = Field(default=None, min_length=2, max_length=180)
     descricao: str | None = Field(default=None, max_length=4000)
-    tipo: str | None = Field(default=None, min_length=2, max_length=60)
+    tipo: str | None = Field(default=None, min_length=2, max_length=40)
     escopo_tipo_campo: CompetencyContentFieldType | None = None
     escopo_opcoes: list[CompetencyContentOption] | None = Field(default=None, max_length=30)
     escopo_valor: str | list[str] | None = None
