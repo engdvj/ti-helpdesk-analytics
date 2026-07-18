@@ -1,0 +1,51 @@
+# Stack local: Postgres (catalogo) + API + frontend. Sem Caddy/HTTPS publico -
+# uso e so na rede interna do hospital, acessado por IP:porta (ver CLAUDE.md,
+# "Hospedagem" - coleta e host de producao ainda sao decisoes em aberto).
+# `docker compose up -d --build` sobe tudo; a API le pipeline/data/gold via
+# volume (a coleta roda no host com `ti-analytics coletar`, fora do container).
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ti_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ti_analytics}
+      POSTGRES_DB: ${POSTGRES_DB:-ti_analytics}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ti_analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-ti_analytics}:${POSTGRES_PASSWORD:-ti_analytics}@db:5432/${POSTGRES_DB:-ti_analytics}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - ./pipeline/data:/app/pipeline/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

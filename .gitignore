@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Dados gerados pelo pipeline (nunca commitar)
+pipeline/data/raw/*
+pipeline/data/silver/*
+pipeline/data/gold/*
+!pipeline/data/raw/.gitkeep
+!pipeline/data/silver/.gitkeep
+!pipeline/data/gold/.gitkeep
+pipeline/logs/*
+!pipeline/logs/.gitkeep
+
+# Segredos
+.env
+*.env.local
+
+# Banco local de dev/smoketest
+*.db
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Docker / editores
+.vscode/
+*.log
