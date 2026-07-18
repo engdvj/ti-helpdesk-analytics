@@ -3,6 +3,9 @@
 import Link from "next/link";
 
 import { AdminLink } from "@/components/AdminLink";
+import { GranularidadeSwitcher } from "@/components/GranularidadeSwitcher";
+import { MetricSwitcher } from "@/components/MetricSwitcher";
+import { SnapshotPlayback } from "@/components/SnapshotPlayback";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UnitSwitcher } from "@/components/UnitSwitcher";
 
@@ -36,6 +39,9 @@ export function Header() {
         TI Analytics
       </Link>
       <UnitSwitcher />
+      <GranularidadeSwitcher />
+      <MetricSwitcher />
+      <SnapshotPlayback />
       <div style={{ flex: 1 }} />
       <AdminLink />
       <ThemeToggle />

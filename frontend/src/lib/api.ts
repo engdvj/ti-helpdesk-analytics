@@ -90,9 +90,12 @@ export const analytics = {
     const qs = params.toString();
     return req<TechSnapshot[]>(`/analytics/snapshots${qs ? `?${qs}` : ""}`);
   },
-  technicianProfile: (usersId: number, entitiesId?: number) => {
-    const qs = entitiesId != null ? `?entities_id=${entitiesId}` : "";
-    return req<TechnicianProfile>(`/analytics/technicians/${usersId}${qs}`);
+  technicianProfile: (usersId: number, entitiesId?: number, granularidade?: string) => {
+    const params = new URLSearchParams();
+    if (entitiesId != null) params.set("entities_id", String(entitiesId));
+    if (granularidade) params.set("granularidade", granularidade);
+    const qs = params.toString();
+    return req<TechnicianProfile>(`/analytics/technicians/${usersId}${qs ? `?${qs}` : ""}`);
   },
 };
 

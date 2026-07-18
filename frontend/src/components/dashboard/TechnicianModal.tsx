@@ -8,24 +8,26 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
 import { analytics, type TechSnapshot, type TechnicianRecentTicket } from "@/lib/api";
-import { scoreColor } from "@/lib/score";
+import { SCORE_LABELS, scoreColor } from "@/lib/score";
 
 type Tab = "resumo" | "chamados" | "historico";
 
 interface Props {
   usersId: number;
   entitiesId?: number;
+  granularidade?: "diaria_acumulada" | "semanal" | "mensal";
   onClose: () => void;
 }
 
 /** Modal de drill-down por tecnico - decalcado de TeamModal.tsx (portal +
  * abas) da branch multicampeonato do fifa_analytics, simplificado pra 3
  * abas: Resumo (stat-tiles + sub-scores), Chamados (recentes), Historico
- * (sparkline do score_geral ao longo dos snapshots). */
-export function TechnicianModal({ usersId, entitiesId, onClose }: Props) {
+ * (sparkline do score_geral ao longo dos snapshots, na mesma granularidade
+ * selecionada no dashboard). */
+export function TechnicianModal({ usersId, entitiesId, granularidade, onClose }: Props) {
   const [tab, setTab] = useState<Tab>("resumo");
-  const { data, error, isLoading } = useSWR(["tech-profile", usersId, entitiesId], () =>
-    analytics.technicianProfile(usersId, entitiesId),
+  const { data, error, isLoading } = useSWR(["tech-profile", usersId, entitiesId, granularidade], () =>
+    analytics.technicianProfile(usersId, entitiesId, granularidade),
   );
 
   const title = data?.atual.nome_completo || data?.atual.username || "Técnico";
@@ -56,14 +58,6 @@ export function TechnicianModal({ usersId, entitiesId, onClose }: Props) {
     </Modal>
   );
 }
-
-const SUB_SCORES: { key: keyof TechSnapshot; label: string }[] = [
-  { key: "score_volume", label: "Volume" },
-  { key: "score_velocidade_resolucao", label: "Velocidade de resolução" },
-  { key: "score_complexidade", label: "Complexidade" },
-  { key: "score_velocidade_resposta", label: "Velocidade de resposta" },
-  { key: "score_abrangencia", label: "Abrangência" },
-];
 
 function ResumoTab({ atual }: { atual: TechSnapshot }) {
   const tiles: { label: string; value: string; color: string }[] = [
@@ -98,7 +92,7 @@ function ResumoTab({ atual }: { atual: TechSnapshot }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        {SUB_SCORES.map(({ key, label }) => (
+        {SCORE_LABELS.map(({ key, label }) => (
           <SubScoreBar key={key} label={label} value={atual[key] as number} />
         ))}
       </div>

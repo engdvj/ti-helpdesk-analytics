@@ -5,6 +5,9 @@ import { Suspense } from "react";
 import { Header } from "@/components/Header";
 import { SWRProvider } from "@/components/SWRProvider";
 import { AdminProvider } from "@/lib/admin-context";
+import { GranularidadeProvider } from "@/lib/granularidade-context";
+import { MetricProvider } from "@/lib/metric-context";
+import { SnapshotProvider } from "@/lib/snapshot-context";
 import { UnitProvider } from "@/lib/unit-context";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -31,12 +34,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col">
         <SWRProvider>
           <AdminProvider>
-            <UnitProvider>
-              <Suspense fallback={null}>
-                <Header />
-              </Suspense>
-              {children}
-            </UnitProvider>
+            <GranularidadeProvider>
+              <MetricProvider>
+                <UnitProvider>
+                  <SnapshotProvider>
+                    <Suspense fallback={null}>
+                      <Header />
+                    </Suspense>
+                    {children}
+                  </SnapshotProvider>
+                </UnitProvider>
+              </MetricProvider>
+            </GranularidadeProvider>
           </AdminProvider>
         </SWRProvider>
       </body>
