@@ -1,10 +1,14 @@
+import pandas as pd
+
 from ti_analytics.glpi.transforms import (
     normalize_categories,
     normalize_reopened_flags,
+    normalize_solution_quality,
     normalize_technicians,
     normalize_ticket_bridge,
     normalize_tickets,
 )
+from ti_analytics.glpi.pipeline import _merge_category_catalog, _select_ti_categories
 
 TEAM_ROLES = {
     "default_por_profile": {"Supervisor": "coordenadora", "Plantonista": "plantonista"},
@@ -73,7 +77,53 @@ def test_normalize_reopened_flags():
     assert bool(df[2]) is True
 
 
+def test_normalize_solution_quality():
+    solutions = {
+        1: [{"content": "<p><strong>Problema identificado: tela azul</strong></p>"
+                          "<p><strong>O que foi feito: trocado o HD, reinstalado o SO, testado boot</strong></p>"}],
+        2: [],  # sem ITILSolution nenhuma - deve virar 0, nao ficar de fora do resultado
+    }
+    df = normalize_solution_quality(solutions).set_index("tickets_id")["resposta_qualidade"]
+    assert df[1] > 0
+    assert df[2] == 0.0
+
+
 def test_normalize_categories():
     raw = [{"id": 5, "name": "Impressora comum"}, {"id": 6, "name": "Redes"}]
     df = normalize_categories(raw)
     assert list(df["categoria_nome"]) == ["Impressora comum", "Redes"]
+
+
+def test_normalize_categories_uses_completename_when_present():
+    raw = [{"id": 41, "name": "Reparos", "completename": "Telefonia > Reparos"}]
+    df = normalize_categories(raw)
+    assert df.iloc[0]["categoria_completa"] == "Telefonia > Reparos"
+
+
+def test_normalize_categories_falls_back_to_name_without_completename():
+    raw = [{"id": 5, "name": "Impressora comum"}]
+    df = normalize_categories(raw)
+    assert df.iloc[0]["categoria_completa"] == "Impressora comum"
+
+
+def test_category_selection_keeps_global_categories_referenced_by_ti_tickets():
+    categories = [
+        {"id": 34, "entities_id": 0, "name": "Teclado"},
+        {"id": 128, "entities_id": 9, "name": "Outros"},
+        {"id": 77, "entities_id": 2, "name": "Categoria de outra equipe"},
+    ]
+    selected = _select_ti_categories(categories, ti_entity_ids={9}, referenced_category_ids={34})
+    assert {category["id"] for category in selected} == {34, 128}
+
+
+def test_category_catalog_merge_preserves_history_and_prefers_current_name():
+    current = pd.DataFrame([
+        {"itilcategories_id": 38, "categoria_nome": "Impressora", "categoria_completa": "TI > Impressora"},
+    ])
+    previous = pd.DataFrame([
+        {"itilcategories_id": 38, "categoria_nome": "Nome antigo", "categoria_completa": "TI > Nome antigo"},
+        {"itilcategories_id": 41, "categoria_nome": "Reparos", "categoria_completa": "TI > Reparos"},
+    ])
+    merged = _merge_category_catalog(current, previous).set_index("itilcategories_id")
+    assert merged.loc[38, "categoria_nome"] == "Impressora"
+    assert merged.loc[41, "categoria_nome"] == "Reparos"
