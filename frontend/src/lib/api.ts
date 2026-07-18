@@ -1,7 +1,7 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-async function req<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+async function req<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, options);
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {
@@ -96,8 +96,37 @@ export const analytics = {
   },
 };
 
-export async function triggerCollect(): Promise<{ status: string; counts: Record<string, number> }> {
-  const res = await fetch(`${BASE}/admin/collect`, { method: "POST" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+export interface ScoreWeights {
+  score_volume: number;
+  score_velocidade_resolucao: number;
+  score_complexidade: number;
+  score_velocidade_resposta: number;
+  score_abrangencia: number;
 }
+
+export interface AdminCredentials {
+  username: string;
+  password: string;
+}
+
+function adminHeaders({ username, password }: AdminCredentials): HeadersInit {
+  return { "X-Admin-Username": username, "X-Admin-Password": password };
+}
+
+export const adminApi = {
+  verify: (creds: AdminCredentials) => req<{ ok: boolean }>("/admin/verify", { method: "POST", headers: adminHeaders(creds) }),
+  collect: (creds: AdminCredentials) =>
+    req<{ status: string; counts: Record<string, number> }>("/admin/collect", {
+      method: "POST",
+      headers: adminHeaders(creds),
+    }),
+  getWeights: () => req<ScoreWeights>("/admin/weights"),
+  setWeights: (weights: ScoreWeights, creds: AdminCredentials) =>
+    req<ScoreWeights>("/admin/weights", {
+      method: "PUT",
+      headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
+      body: JSON.stringify(weights),
+    }),
+  resetWeights: (creds: AdminCredentials) =>
+    req<ScoreWeights>("/admin/weights/reset", { method: "POST", headers: adminHeaders(creds) }),
+};

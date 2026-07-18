@@ -1,4 +1,12 @@
-import type { TechSnapshot } from "@/lib/api";
+import type { ScoreWeights, TechSnapshot } from "@/lib/api";
+
+export const SCORE_LABELS: { key: keyof ScoreWeights; label: string }[] = [
+  { key: "score_volume", label: "Volume" },
+  { key: "score_velocidade_resolucao", label: "Velocidade de resolução" },
+  { key: "score_complexidade", label: "Complexidade" },
+  { key: "score_velocidade_resposta", label: "Velocidade de resposta" },
+  { key: "score_abrangencia", label: "Abrangência" },
+];
 
 export function scoreColor(v: number | null | undefined): string {
   if (v == null) return "var(--apagado)";

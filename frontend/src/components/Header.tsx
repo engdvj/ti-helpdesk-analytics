@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { AdminLink } from "@/components/AdminLink";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UnitSwitcher } from "@/components/UnitSwitcher";
 
@@ -36,6 +37,7 @@ export function Header() {
       </Link>
       <UnitSwitcher />
       <div style={{ flex: 1 }} />
+      <AdminLink />
       <ThemeToggle />
     </header>
   );

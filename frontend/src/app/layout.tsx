@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { Header } from "@/components/Header";
 import { SWRProvider } from "@/components/SWRProvider";
+import { AdminProvider } from "@/lib/admin-context";
 import { UnitProvider } from "@/lib/unit-context";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -29,12 +30,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="min-h-full flex flex-col">
         <SWRProvider>
-          <UnitProvider>
-            <Suspense fallback={null}>
-              <Header />
-            </Suspense>
-            {children}
-          </UnitProvider>
+          <AdminProvider>
+            <UnitProvider>
+              <Suspense fallback={null}>
+                <Header />
+              </Suspense>
+              {children}
+            </UnitProvider>
+          </AdminProvider>
         </SWRProvider>
       </body>
     </html>
