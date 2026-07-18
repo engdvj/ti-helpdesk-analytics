@@ -105,6 +105,12 @@ body {
 .sumula-container-estreita,
 .sumula-container-media,
 .sumula-container-hub {
+  /* width: 100% e obrigatorio aqui - main.sumula-container-hub tambem e item
+     flex de <body class="flex flex-col"> (flex: 1, pra altura). Sem largura
+     explicita, margin: 0 auto some com o stretch: dentro de um flex item o
+     auto-margin assume alinhamento por conta propria e o box encolhe pro
+     conteudo (shrink-to-fit) em vez de esticar ate o max-width. */
+  width: 100%;
   margin: 0 auto;
   padding: 1.75rem clamp(1rem, 4vw, 2rem);
 }
