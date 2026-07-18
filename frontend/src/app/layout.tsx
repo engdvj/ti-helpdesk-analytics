@@ -5,8 +5,10 @@ import { Suspense } from "react";
 import { Header } from "@/components/Header";
 import { SWRProvider } from "@/components/SWRProvider";
 import { AdminProvider } from "@/lib/admin-context";
+import { CumulativoProvider } from "@/lib/cumulativo-context";
 import { GranularidadeProvider } from "@/lib/granularidade-context";
 import { MetricProvider } from "@/lib/metric-context";
+import { ScoreModeProvider } from "@/lib/score-mode-context";
 import { SnapshotProvider } from "@/lib/snapshot-context";
 import { UnitProvider } from "@/lib/unit-context";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -35,16 +37,20 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SWRProvider>
           <AdminProvider>
             <GranularidadeProvider>
-              <MetricProvider>
-                <UnitProvider>
-                  <SnapshotProvider>
-                    <Suspense fallback={null}>
-                      <Header />
-                    </Suspense>
-                    {children}
-                  </SnapshotProvider>
-                </UnitProvider>
-              </MetricProvider>
+              <CumulativoProvider>
+                <MetricProvider>
+                  <ScoreModeProvider>
+                    <UnitProvider>
+                      <SnapshotProvider>
+                        <Suspense fallback={null}>
+                          <Header />
+                        </Suspense>
+                        {children}
+                      </SnapshotProvider>
+                    </UnitProvider>
+                  </ScoreModeProvider>
+                </MetricProvider>
+              </CumulativoProvider>
             </GranularidadeProvider>
           </AdminProvider>
         </SWRProvider>

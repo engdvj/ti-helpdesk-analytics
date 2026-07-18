@@ -7,7 +7,7 @@ import type { TechSnapshot } from "./api";
 export type Granularidade = TechSnapshot["granularidade"];
 
 export const GRANULARIDADE_OPTIONS: { key: Granularidade; label: string }[] = [
-  { key: "diaria_acumulada", label: "Diário" },
+  { key: "diaria", label: "Diário" },
   { key: "semanal", label: "Semanal" },
   { key: "mensal", label: "Mensal" },
 ];
@@ -23,7 +23,7 @@ const GranularidadeContext = createContext<GranularidadeState | null>(null);
  * paginas de dashboard) - por isso mora num context provido no layout raiz e
  * o seletor fica na Header, nao dentro de uma pagina especifica. */
 export function GranularidadeProvider({ children }: { children: ReactNode }) {
-  const [granularidade, setGranularidade] = useState<Granularidade>("diaria_acumulada");
+  const [granularidade, setGranularidade] = useState<Granularidade>("diaria");
   return (
     <GranularidadeContext.Provider value={{ granularidade, setGranularidade }}>
       {children}
