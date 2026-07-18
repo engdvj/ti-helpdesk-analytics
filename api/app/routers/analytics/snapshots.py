@@ -56,13 +56,14 @@ def get_snapshots(
 def get_technician_profile(
     users_id: int,
     entities_id: int | None = Query(None, description="filtra por unidade - omitido = todas combinadas"),
+    granularidade: str = Query("diaria_acumulada", pattern="^(diaria_acumulada|semanal|mensal)$"),
 ):
     wide, dim_tecnico = _load_base_data()
     if users_id not in dim_tecnico["users_id"].values:
         raise HTTPException(404, "tecnico nao encontrado")
 
     wide_filtrado = wide if entities_id is None else wide[wide["entities_id"] == entities_id]
-    historico = build_daily_cumulative_snapshots(wide_filtrado, dim_tecnico)
+    historico = _BUILDERS[granularidade](wide_filtrado, dim_tecnico)
     if historico.empty:
         raise HTTPException(404, "sem chamados resolvidos ainda nesse recorte")
 
