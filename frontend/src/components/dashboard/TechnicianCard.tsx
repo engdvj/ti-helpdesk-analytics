@@ -1,8 +1,15 @@
 "use client";
 
-import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
+import { ChevronRight } from "lucide-react";
+import type { CSSProperties } from "react";
+
+import { Avatar } from "@/components/ui/Avatar";
+import { RankBadge } from "@/components/ui/RankBadge";
 import type { TechSnapshot } from "@/lib/api";
+import { metricValue, useMetric } from "@/lib/metric-context";
 import { scoreColor } from "@/lib/score";
+import { resolveTechnicianDisplay, useTechnicians } from "@/lib/technicians";
+import { unitDisplayName, useUnits } from "@/lib/units";
 
 const ROLE_LABEL: Record<TechSnapshot["papel"], string> = {
   plantonista: "Plantonista",
@@ -10,87 +17,63 @@ const ROLE_LABEL: Record<TechSnapshot["papel"], string> = {
   coordenadora: "Coordenadora",
 };
 
+const SCORE_LIKE_KEYS = new Set(["score_geral", "score_qualidade"]);
+
 interface Props {
   snapshot: TechSnapshot;
-  rank?: number;
+  rank?: number | null;
   onClick: () => void;
 }
 
-/** Card de grid (aba "Perfis") - versao simplificada do PlayerCard.tsx da
- * branch multicampeonato do fifa_analytics: aqui e um card clicavel de grid
- * (nao flutuante/arrastavel) que abre o TechnicianModal com o detalhe. */
+/** Card compacto da aba Perfis. A leitura segue a mesma ordem do ranking:
+ * posicao, identidade e metrica usada na ordenacao. */
 export function TechnicianCard({ snapshot, rank, onClick }: Props) {
-  const initial = (snapshot.nome_completo || snapshot.username || "?").trim().charAt(0).toUpperCase();
+  const { data: technicians } = useTechnicians();
+  const { data: units } = useUnits();
+  const { metric } = useMetric();
+  const display = resolveTechnicianDisplay(
+    snapshot.users_id,
+    snapshot.nome_completo || snapshot.username,
+    technicians,
+  );
+  const value = metricValue(snapshot, metric);
+  const isScoreLike = SCORE_LIKE_KEYS.has(metric.key);
+  const accentColor = isScoreLike ? scoreColor(value) : scoreColor(snapshot.score_geral);
+  const progress = value == null ? 0 : Math.min(Math.max(value, 0), 100);
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="sumula-cartao"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.6rem",
-        padding: "1rem",
-        textAlign: "left",
-        cursor: "pointer",
-        borderLeft: `3px solid ${scoreColor(snapshot.score_geral)}`,
-      }}
+      aria-label={`Abrir perfil de ${display.nome}`}
+      className={`sumula-cartao technician-profile-card ${isScoreLike ? "has-score-scale" : ""}`}
+      style={{ "--technician-card-accent": accentColor } as CSSProperties}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-        <span
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "var(--acento)",
-            color: "var(--superficie)",
-            fontFamily: "var(--font-display)",
-            fontWeight: 600,
-            flexShrink: 0,
-          }}
-        >
-          {initial}
+      <header className="technician-profile-card-header">
+        <span className="technician-profile-card-rank" title={rank == null ? "Sem posição" : `${rank}º lugar`}>
+          <RankBadge rank={rank ?? null} />
         </span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "var(--fonte-corpo)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {snapshot.nome_completo || snapshot.username}
-            {rank != null && (
-              <span style={{ color: "var(--apagado)", fontWeight: 400 }}> · #{rank}</span>
-            )}
-          </div>
-          <div style={{ fontSize: "var(--fonte-label)", color: "var(--apagado)", textTransform: "uppercase" }}>
-            {ROLE_LABEL[snapshot.papel]}
-          </div>
+        <Avatar nome={display.nome} foto={display.foto} size={36} />
+        <div className="technician-profile-card-identity">
+          <strong>{display.nome}</strong>
+          <span>
+            {ROLE_LABEL[snapshot.papel]} · {unitDisplayName(display.unidadeSlug ?? snapshot.unidade_slug, units)}
+          </span>
         </div>
-      </div>
+        <ChevronRight className="technician-profile-card-arrow" size={16} aria-hidden />
+      </header>
 
-      <div style={{ display: "flex", gap: "1rem" }}>
+      <section className="technician-profile-card-metric">
         <div>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontVariantNumeric: "tabular-nums",
-              fontSize: "1.25rem",
-              fontWeight: 800,
-              color: scoreColor(snapshot.score_geral),
-            }}
-          >
-            {snapshot.score_geral.toFixed(1)}
-          </div>
-          <div style={{ fontSize: "0.56rem", color: "var(--apagado)", textTransform: "uppercase" }}>Score</div>
+          <span>{metric.label}</span>
+          <strong>{value == null ? "—" : metric.format(value)}</strong>
         </div>
-        <div>
-          <div style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontSize: "1.25rem", fontWeight: 800 }}>
-            {snapshot.chamados_resolvidos.toFixed(0)}
-          </div>
-          <div style={{ fontSize: "0.56rem", color: "var(--apagado)", textTransform: "uppercase" }}>Chamados</div>
-        </div>
-      </div>
-
-      <ConfidenceBadge nivel={snapshot.nivel_evidencia} />
+        {isScoreLike && (
+          <span className="technician-profile-card-progress" aria-hidden>
+            <i style={{ width: `${progress}%` }} />
+          </span>
+        )}
+      </section>
     </button>
   );
 }

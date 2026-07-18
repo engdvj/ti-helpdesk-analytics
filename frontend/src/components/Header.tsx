@@ -1,50 +1,66 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { AdminLink } from "@/components/AdminLink";
 import { GranularidadeSwitcher } from "@/components/GranularidadeSwitcher";
 import { MetricSwitcher } from "@/components/MetricSwitcher";
+import { PeriodRangePicker } from "@/components/PeriodRangePicker";
+import { ScoreModeSwitcher } from "@/components/ScoreModeSwitcher";
 import { SnapshotPlayback } from "@/components/SnapshotPlayback";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UnitSwitcher } from "@/components/UnitSwitcher";
 
 export function Header() {
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/u/") ?? false;
+
   return (
-    <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        height: 52,
-        display: "flex",
-        alignItems: "center",
-        gap: "1rem",
-        padding: "0 1rem",
-        background: "var(--superficie)",
-        borderBottom: "1px solid var(--linha)",
-      }}
-    >
-      <Link
-        href="/"
-        style={{
-          fontFamily: "var(--font-display)",
-          fontWeight: 600,
-          fontSize: "1.05rem",
-          color: "var(--tinta)",
-          textDecoration: "none",
-          whiteSpace: "nowrap",
-        }}
-      >
-        TI Analytics
-      </Link>
-      <UnitSwitcher />
-      <GranularidadeSwitcher />
-      <MetricSwitcher />
-      <SnapshotPlayback />
-      <div style={{ flex: 1 }} />
-      <AdminLink />
-      <ThemeToggle />
+    <header className={`app-header ${isDashboard ? "has-toolbar" : ""}`}>
+      <div className="app-header-primary">
+        <Link href="/" className="app-header-brand">
+          <span>TI</span> Analytics
+        </Link>
+
+        {isDashboard && (
+          <div className="app-header-scope">
+            <span className="app-header-group-label">Escopo</span>
+            <UnitSwitcher />
+          </div>
+        )}
+
+        <div className="app-header-spacer" />
+        <div className="app-header-actions">
+          <AdminLink />
+          <ThemeToggle />
+        </div>
+      </div>
+
+      {isDashboard && (
+        <div className="app-header-toolbar">
+          <section className="app-header-group app-header-period-group" aria-label="Período da análise">
+            <span className="app-header-group-label">Período</span>
+            <div className="app-header-group-controls">
+              <GranularidadeSwitcher />
+              <PeriodRangePicker />
+            </div>
+          </section>
+
+          <section className="app-header-group app-header-analysis-group" aria-label="Critério da análise">
+            <span className="app-header-group-label">Análise</span>
+            <div className="app-header-group-controls">
+              <ScoreModeSwitcher />
+              <MetricSwitcher />
+            </div>
+          </section>
+
+          <section className="app-header-group app-header-timeline-group" aria-label="Linha do tempo">
+            <span className="app-header-group-label">Linha do tempo</span>
+            <SnapshotPlayback />
+          </section>
+        </div>
+      )}
     </header>
   );
 }

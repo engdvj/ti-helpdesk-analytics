@@ -9,20 +9,30 @@ export interface MetricOption {
   label: string;
   higherIsBetter: boolean;
   format: (v: number) => string;
+  /** true = o valor muda conforme scoreMode (equipe/metas, ver scores.py) -
+   * so score_geral e score_qualidade passam por essa normalizacao. As
+   * demais sao metricas brutas (contagem/media), o mesmo numero nos dois
+   * modos - ver ScoreModeSwitcher, que usa isso pra saber quando o toggle
+   * Equipe/Metas deixa de fazer sentido. */
+  modeDependent?: boolean;
 }
 
 export const METRIC_OPTIONS: MetricOption[] = [
-  { key: "score_geral", label: "Score geral", higherIsBetter: true, format: (v) => v.toFixed(1) },
-  { key: "chamados_resolvidos", label: "Chamados resolvidos", higherIsBetter: true, format: (v) => v.toFixed(0) },
-  { key: "resposta_media_min", label: "Resposta média (min)", higherIsBetter: false, format: (v) => v.toFixed(0) },
-  { key: "resolucao_media_h", label: "Resolução média (h)", higherIsBetter: false, format: (v) => v.toFixed(1) },
-  { key: "n_categorias", label: "Categorias distintas", higherIsBetter: true, format: (v) => v.toFixed(0) },
-  { key: "urgencia_media", label: "Urgência média", higherIsBetter: true, format: (v) => v.toFixed(1) },
-  { key: "confianca", label: "Confiança", higherIsBetter: true, format: (v) => `${Math.round(v * 100)}%` },
+  { key: "score_geral", label: "Score geral", higherIsBetter: true, format: (v) => v.toFixed(1), modeDependent: true },
+  { key: "chamados_resolvidos", label: "Créditos", higherIsBetter: true, format: (v) => v.toFixed(0) },
+  { key: "n_categorias", label: "Abrangência", higherIsBetter: true, format: (v) => v.toFixed(0) },
+  { key: "complexidade_categoria_media", label: "Complexidade real", higherIsBetter: true, format: (v) => `${v.toFixed(2)}x` },
+  { key: "score_qualidade", label: "Qualidade da resposta", higherIsBetter: true, format: (v) => v.toFixed(0), modeDependent: true },
+  { key: "resposta_media_min", label: "Velocidade de resposta", higherIsBetter: false, format: (v) => `${v.toFixed(0)} min` },
 ];
 
-export function metricValue(row: TechSnapshot, metric: MetricOption): number {
-  return row[metric.key] as number;
+/** Metrica bruta usada como destino ao clicar "Métricas" no ScoreModeSwitcher
+ * - primeira opcao nao mode-dependent da lista. */
+export const DEFAULT_RAW_METRIC_KEY = METRIC_OPTIONS.find((m) => !m.modeDependent)!.key;
+
+export function metricValue(row: TechSnapshot, metric: MetricOption): number | null {
+  const value = row[metric.key];
+  return typeof value === "number" ? value : null;
 }
 
 interface MetricState {

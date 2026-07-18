@@ -22,6 +22,7 @@ export function ThemeToggle() {
 
   return (
     <button
+      className="app-header-theme-toggle"
       onClick={toggle}
       aria-label="Alternar tema"
       style={{

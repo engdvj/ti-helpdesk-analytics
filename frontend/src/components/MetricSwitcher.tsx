@@ -24,8 +24,9 @@ export function MetricSwitcher() {
   if (!unit) return null;
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="metric-switcher" style={{ position: "relative" }}>
       <button
+        className="metric-switcher-trigger"
         onClick={() => setOpen((v) => !v)}
         style={{
           display: "flex",
@@ -48,6 +49,7 @@ export function MetricSwitcher() {
       </button>
       {open && (
         <div
+          className="metric-switcher-menu"
           style={{
             position: "fixed",
             marginTop: 4,

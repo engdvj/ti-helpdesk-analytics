@@ -33,8 +33,9 @@ export function UnitSwitcher() {
   const currentLabel = ctx.status === "pronta" ? (ctx.unit ? ctx.unit.nome : "Todas as unidades") : "...";
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="unit-switcher" style={{ position: "relative" }}>
       <button
+        className="unit-switcher-trigger"
         onClick={() => setOpen((v) => !v)}
         style={{
           display: "flex",
@@ -56,6 +57,7 @@ export function UnitSwitcher() {
       </button>
       {open && (
         <div
+          className="unit-switcher-menu"
           style={{
             position: "fixed",
             marginTop: 4,

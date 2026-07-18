@@ -11,6 +11,8 @@ interface Props {
 export function FilterChip({ active, onClick, children }: Props) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
       style={{
         fontSize: "var(--fonte-label)",

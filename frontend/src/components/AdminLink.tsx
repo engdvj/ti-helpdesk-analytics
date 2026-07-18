@@ -21,6 +21,7 @@ export function AdminLink() {
   return (
     <Link
       href="/admin"
+      className="app-header-admin-link"
       style={{
         display: "flex",
         alignItems: "center",

@@ -1,13 +1,13 @@
 const MEDAL_COLORS = ["var(--ouro)", "var(--prata)", "var(--bronze)"];
 
 interface Props {
-  rank: number;
+  rank: number | null;
 }
 
 /** Selo numerado de posicao no ranking - cores de medalha pros 3 primeiros,
  * neutro pros demais. */
 export function RankBadge({ rank }: Props) {
-  const medalColor = MEDAL_COLORS[rank - 1];
+  const medalColor = rank == null ? undefined : MEDAL_COLORS[rank - 1];
   return (
     <span
       style={{
@@ -25,7 +25,7 @@ export function RankBadge({ rank }: Props) {
         flexShrink: 0,
       }}
     >
-      {rank}
+      {rank ?? "—"}
     </span>
   );
 }

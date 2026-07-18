@@ -12,7 +12,7 @@ export default function HubPage() {
   return (
     <main className="sumula-container-hub" style={{ flex: 1 }}>
       <div style={{ marginBottom: "2rem" }}>
-        <span className="sumula-carimbo">Gamificação · TI</span>
+        <span className="sumula-carimbo">Ranking · TI</span>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--fonte-placar)", fontWeight: 600, marginTop: "0.75rem" }}>
           Ranking da equipe de TI
         </h1>
