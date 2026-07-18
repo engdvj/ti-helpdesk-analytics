@@ -18,6 +18,13 @@
   --linha: #c7bfa8;
   --linha-forte: #a89d7d;
 
+  /* Medalhas (ranking): brilho fixo, nao muda com o tema - ouro/prata/bronze
+     sao reconheciveis por convencao universal, nao por contraste com --papel. */
+  --ouro: #f5c542;
+  --prata: #c0c0c0;
+  --bronze: #cd7f32;
+  --medalha-texto: #1c2620;
+
   --fonte-placar: clamp(2.25rem, 1.7rem + 3vw, 3.75rem);
   --fonte-titulo: clamp(1.5rem, 1.3rem + 1vw, 2rem);
   --fonte-h: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);

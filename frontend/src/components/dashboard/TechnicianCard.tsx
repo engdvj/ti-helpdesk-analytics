@@ -1,26 +1,14 @@
 "use client";
 
+import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import type { TechSnapshot } from "@/lib/api";
+import { scoreColor } from "@/lib/score";
 
 const ROLE_LABEL: Record<TechSnapshot["papel"], string> = {
   plantonista: "Plantonista",
   tatico: "Tático",
   coordenadora: "Coordenadora",
 };
-
-export function scoreColor(v: number | null | undefined): string {
-  if (v == null) return "var(--apagado)";
-  if (v >= 62) return "var(--acento)";
-  if (v >= 54) return "color-mix(in srgb, var(--acento) 65%, white)";
-  if (v >= 46) return "var(--aviso)";
-  return "var(--critico)";
-}
-
-export function confidenceLabel(nivel: TechSnapshot["nivel_evidencia"]): { label: string; color: string } {
-  if (nivel === "alta") return { label: "Confiança alta", color: "var(--acento)" };
-  if (nivel === "media") return { label: "Confiança média", color: "var(--aviso)" };
-  return { label: "Confiança baixa", color: "var(--critico)" };
-}
 
 interface Props {
   snapshot: TechSnapshot;
@@ -32,7 +20,6 @@ interface Props {
  * branch multicampeonato do fifa_analytics: aqui e um card clicavel de grid
  * (nao flutuante/arrastavel) que abre o TechnicianModal com o detalhe. */
 export function TechnicianCard({ snapshot, rank, onClick }: Props) {
-  const conf = confidenceLabel(snapshot.nivel_evidencia);
   const initial = (snapshot.nome_completo || snapshot.username || "?").trim().charAt(0).toUpperCase();
 
   return (
@@ -103,10 +90,7 @@ export function TechnicianCard({ snapshot, rank, onClick }: Props) {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: conf.color }} />
-        <span style={{ fontSize: "0.66rem", color: "var(--apagado)" }}>{conf.label}</span>
-      </div>
+      <ConfidenceBadge nivel={snapshot.nivel_evidencia} />
     </button>
   );
 }

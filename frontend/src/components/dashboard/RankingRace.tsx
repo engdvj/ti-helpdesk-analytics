@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 
+import { Bar } from "@/components/ui/Bar";
+import { RankBadge } from "@/components/ui/RankBadge";
 import { analytics } from "@/lib/api";
-
-const RANK_BADGE_COLORS = ["#f5c542", "#c0c0c0", "#cd7f32"];
 
 const ROLE_OPTIONS: { key: string; label: string }[] = [
   { key: "plantonista", label: "Plantonistas" },
@@ -128,7 +128,6 @@ export function RankingRace({ entitiesId, granularidade = "diaria_acumulada", on
         {rows.map((row, i) => {
           const rank = i + 1;
           const pct = (row.score_geral / maxScore) * 100;
-          const badgeColor = RANK_BADGE_COLORS[rank - 1] ?? "var(--superficie)";
           return (
             <button
               key={row.users_id}
@@ -144,24 +143,7 @@ export function RankingRace({ entitiesId, granularidade = "diaria_acumulada", on
                 textAlign: "left",
               }}
             >
-              <span
-                style={{
-                  width: 22,
-                  height: 22,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.7rem",
-                  fontWeight: 700,
-                  background: badgeColor,
-                  color: rank <= 3 ? "#1c2620" : "var(--apagado)",
-                  border: "1px solid var(--linha)",
-                  flexShrink: 0,
-                }}
-              >
-                {rank}
-              </span>
+              <RankBadge rank={rank} />
               <span
                 style={{
                   width: 150,
@@ -175,17 +157,7 @@ export function RankingRace({ entitiesId, granularidade = "diaria_acumulada", on
               >
                 {row.nome_completo || row.username}
               </span>
-              <span style={{ position: "relative", flex: 1, height: 18, background: "var(--acento-suave)" }}>
-                <span
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: `${pct}%`,
-                    background: "var(--acento)",
-                    transition: "width 0.55s cubic-bezier(0.4,0,0.2,1), background 0.45s ease",
-                  }}
-                />
-              </span>
+              <Bar pct={pct} transition="width 0.55s cubic-bezier(0.4,0,0.2,1), background 0.45s ease" />
               <span
                 style={{
                   width: 44,

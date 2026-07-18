@@ -3,10 +3,12 @@
 import { useState } from "react";
 import useSWR from "swr";
 
+import { Bar } from "@/components/ui/Bar";
+import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { Modal } from "@/components/ui/Modal";
+import { Tabs } from "@/components/ui/Tabs";
 import { analytics, type TechSnapshot, type TechnicianRecentTicket } from "@/lib/api";
-
-import { confidenceLabel, scoreColor } from "./TechnicianCard";
+import { scoreColor } from "@/lib/score";
 
 type Tab = "resumo" | "chamados" | "historico";
 
@@ -34,26 +36,16 @@ export function TechnicianModal({ usersId, entitiesId, onClose }: Props) {
       {error && <p style={{ color: "var(--critico)" }}>{String((error as Error).message ?? error)}</p>}
       {data && (
         <>
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", borderBottom: "1px solid var(--linha)" }}>
-            {(["resumo", "chamados", "historico"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  padding: "0.5rem 0.75rem",
-                  background: "none",
-                  border: "none",
-                  borderBottom: tab === t ? "2px solid var(--acento)" : "2px solid transparent",
-                  color: tab === t ? "var(--acento)" : "var(--apagado)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--fonte-label)",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                }}
-              >
-                {t}
-              </button>
-            ))}
+          <div style={{ marginBottom: "1rem" }}>
+            <Tabs
+              tabs={[
+                { key: "resumo", label: "resumo" },
+                { key: "chamados", label: "chamados" },
+                { key: "historico", label: "historico" },
+              ]}
+              active={tab}
+              onChange={(key) => setTab(key as Tab)}
+            />
           </div>
 
           {tab === "resumo" && <ResumoTab atual={data.atual} />}
@@ -74,7 +66,6 @@ const SUB_SCORES: { key: keyof TechSnapshot; label: string }[] = [
 ];
 
 function ResumoTab({ atual }: { atual: TechSnapshot }) {
-  const conf = confidenceLabel(atual.nivel_evidencia);
   const tiles: { label: string; value: string; color: string }[] = [
     { label: "Score geral", value: atual.score_geral.toFixed(1), color: scoreColor(atual.score_geral) },
     { label: "Chamados", value: atual.chamados_resolvidos.toFixed(0), color: "var(--tinta)" },
@@ -112,11 +103,8 @@ function ResumoTab({ atual }: { atual: TechSnapshot }) {
         ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: "1.25rem" }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: conf.color }} />
-        <span style={{ fontSize: "0.7rem", color: "var(--apagado)" }}>
-          {conf.label} ({Math.round(atual.confianca * 100)}%)
-        </span>
+      <div style={{ marginTop: "1.25rem" }}>
+        <ConfidenceBadge nivel={atual.nivel_evidencia} suffix={`(${Math.round(atual.confianca * 100)}%)`} />
       </div>
     </div>
   );
@@ -126,9 +114,7 @@ function SubScoreBar({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 34px", alignItems: "center", gap: "0.5rem" }}>
       <span style={{ fontSize: "var(--fonte-label)", color: "var(--apagado)" }}>{label}</span>
-      <span style={{ position: "relative", height: 8, background: "var(--acento-suave)" }}>
-        <span style={{ position: "absolute", inset: 0, width: `${value}%`, background: scoreColor(value), transition: "width 0.4s ease" }} />
-      </span>
+      <Bar pct={value} height={8} color={scoreColor(value)} />
       <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fonte-dados)", textAlign: "right" }}>{value.toFixed(0)}</span>
     </div>
   );

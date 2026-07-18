@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { RankingRace } from "@/components/dashboard/RankingRace";
 import { TechnicianCard } from "@/components/dashboard/TechnicianCard";
 import { TechnicianModal } from "@/components/dashboard/TechnicianModal";
+import { Tabs } from "@/components/ui/Tabs";
 import { analytics } from "@/lib/api";
 import { useUnit } from "@/lib/unit-context";
 
@@ -27,27 +28,15 @@ export default function DashboardPage() {
 
   return (
     <main className="sumula-container-hub" style={{ flex: 1 }}>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid var(--linha)" }}>
-        {(["corrida", "perfis"] as MainTab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              padding: "0.6rem 1rem",
-              background: "none",
-              border: "none",
-              borderBottom: tab === t ? "2px solid var(--acento)" : "2px solid transparent",
-              color: tab === t ? "var(--acento)" : "var(--apagado)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "var(--fonte-label)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              cursor: "pointer",
-            }}
-          >
-            {t === "corrida" ? "Corrida" : "Perfis"}
-          </button>
-        ))}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <Tabs
+          tabs={[
+            { key: "corrida", label: "Corrida" },
+            { key: "perfis", label: "Perfis" },
+          ]}
+          active={tab}
+          onChange={(key) => setTab(key as MainTab)}
+        />
       </div>
 
       {tab === "corrida" && <RankingRace entitiesId={entitiesId} onSelectTechnician={setSelectedTech} />}
