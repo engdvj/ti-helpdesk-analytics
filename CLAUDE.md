@@ -94,7 +94,7 @@ cd frontend && npm run dev   # ja usa --webpack (ver "Problemas conhecidos")
 ### Feito
 - Coleta completa GLPI -> raw/silver/gold (`glpi/pipeline.py::run()`), validada contra o GLPI real (431 chamados de TI, 16 técnicos, 28 reaberturas detectadas).
 - Motor de score (`analytics/scores.py`) com shrinkage por confiança e `ref_stats` estável entre snapshots.
-- 3 granularidades de snapshot (`diaria_acumulada`/`semanal`/`mensal`) em `analytics/snapshot.py`.
+- 3 granularidades (`diaria`/`semanal`/`mensal`) × 2 modos (`cumulativo`/individual) de snapshot em `analytics/snapshot.py::build_snapshots()` - 6 combinações, escolhidas via query params `granularidade`+`cumulativo` em `/analytics/snapshots`.
 - API FastAPI (`api/app/`): `/units`, `/technicians`, `/analytics/snapshots`, `/analytics/technicians/{id}`, `/admin/collect` — testada contra o gold real via sqlite.
 - Frontend Next.js (`frontend/`): hub, dashboard por unidade (`/u/[slug]/dashboard`) com abas Corrida (ranking race) e Perfis (grid + modal), tokens de design "Súmula" adaptados (acento azul/teal em vez do verde de gramado do fifa_analytics).
 - 27 testes pytest (transforms, scores, snapshot, reopens, schema_validate, entities).
