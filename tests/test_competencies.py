@@ -7,17 +7,23 @@ from sqlalchemy.orm import Session
 
 from api.app.db import Base
 from api.app.models.technician import Technician
+from api.app.models.competency import CompetencyActivityType
 from api.app.routers.competencies import (
     competency_matrix,
     create_activity,
+    create_activity_type,
     create_assessment,
     create_situation,
     delete_activity,
+    delete_activity_type,
     delete_situation,
     technician_competencies,
+    update_activity_type,
 )
 from api.app.schemas.competency import (
     CompetencyActivityCreate,
+    CompetencyActivityTypeCreate,
+    CompetencyActivityTypeUpdate,
     CompetencyAssessmentCreate,
     CompetencySituationCreate,
 )
@@ -29,6 +35,8 @@ def db():
     Base.metadata.create_all(engine)
     session = Session(engine)
     session.add_all([
+        CompetencyActivityType(slug="operacional", nome="Operacional", cor="#58a6ff"),
+        CompetencyActivityType(slug="sistema", nome="Sistema", cor="#69b5e4"),
         Technician(
             users_id=1,
             username="ana",
@@ -223,3 +231,74 @@ def test_delete_is_permanent_only_without_assessment_history(db: Session):
     )
     assert delete_situation(disposable_situation.id, db) == {"ok": True}
     assert delete_activity(disposable.id, db) == {"ok": True}
+
+
+def test_activity_types_have_crud_and_cannot_be_deleted_while_in_use(db: Session):
+    activity_type = create_activity_type(
+        CompetencyActivityTypeCreate(
+            nome="Infraestrutura clínica",
+            descricao="Equipamentos ligados ao atendimento.",
+            cor="#22aa88",
+            ordem=3,
+        ),
+        db,
+    )
+    assert activity_type.slug == "infraestrutura-clinica"
+
+    updated = update_activity_type(
+        activity_type.id,
+        CompetencyActivityTypeUpdate(nome="Infraestrutura hospitalar", cor="#119977"),
+        db,
+    )
+    assert updated.nome == "Infraestrutura hospitalar"
+    assert updated.cor == "#119977"
+
+    create_activity(
+        CompetencyActivityCreate(nome="Configurar leito", tipo=activity_type.slug),
+        db,
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        delete_activity_type(activity_type.id, db)
+    assert exc_info.value.status_code == 409
+
+
+def test_scope_and_procedure_accept_configurable_content_fields(db: Session):
+    activity = create_activity(
+        CompetencyActivityCreate(
+            nome="Acesso seguro",
+            tipo="sistema",
+            descricao="Validação de identidade",
+            escopo_tipo_campo="radio",
+            escopo_opcoes=[
+                {"valor": "local", "rotulo": "Acesso local"},
+                {"valor": "remoto", "rotulo": "Acesso remoto"},
+            ],
+            escopo_valor="remoto",
+        ),
+        db,
+    )
+    situation = create_situation(
+        activity.id,
+        CompetencySituationCreate(
+            nome="Restabelecer credencial",
+            procedimento_esperado="Validar identidade e registrar",
+            procedimento_tipo_campo="multipla_selecao",
+            procedimento_opcoes=[
+                {"valor": "identidade", "rotulo": "Validar identidade"},
+                {"valor": "registro", "rotulo": "Registrar evidência"},
+            ],
+            procedimento_valor=["identidade", "registro"],
+            tipo_campo="sim_nao",
+        ),
+        db,
+    )
+
+    assert activity.escopo_tipo_campo == "radio"
+    assert activity.escopo_valor == "remoto"
+    assert situation.procedimento_tipo_campo == "multipla_selecao"
+    assert situation.procedimento_valor == ["identidade", "registro"]
+
+    detail = technician_competencies(1, db)
+    progress = detail.atividades[0]
+    assert progress.escopo_opcoes[1].rotulo == "Acesso remoto"
+    assert progress.situacoes[0].procedimento_opcoes[0].rotulo == "Validar identidade"
