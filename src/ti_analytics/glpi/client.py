@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,6 +21,14 @@ from ti_analytics.utils.logging import get_logger
 logger = get_logger(__name__)
 
 PAGE_SIZE = 200
+# Coleta faz uma chamada por chamado (Ticket_User/Log/ITILSolution - ver
+# _fetch_ticket_details em pipeline.py), centenas de conexoes TCP novas e
+# sequenciais pro GLPI. Isso expos falhas transitorias de conexao (timeout no
+# connect, nao na resposta) rodando via Docker Desktop/WSL2 que nao apareciam
+# rodando direto no host - retry curto absorve esses blips sem mascarar erro
+# de verdade (HTTPError, ex. 401/404, nunca e re-tentado).
+_MAX_ATTEMPTS = 3
+_RETRY_DELAY_SECONDS = 2.0
 
 
 class GlpiError(RuntimeError):
@@ -43,14 +52,24 @@ def _request(
         req_headers.update(headers)
 
     req = urllib.request.Request(url, data=data, method=method, headers=req_headers)
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read()
-            body = json.loads(raw) if raw else {}
-            return body, dict(resp.headers)
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:300]
-        raise GlpiError(f"HTTP {exc.code} em {endpoint}: {detail}") from exc
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read()
+                body = json.loads(raw) if raw else {}
+                return body, dict(resp.headers)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:300]
+            raise GlpiError(f"HTTP {exc.code} em {endpoint}: {detail}") from exc
+        except urllib.error.URLError:
+            if attempt == _MAX_ATTEMPTS:
+                raise
+            logger.warning(
+                "falha de conexao com GLPI em %s (tentativa %s/%s) - tentando de novo",
+                endpoint, attempt, _MAX_ATTEMPTS,
+            )
+            time.sleep(_RETRY_DELAY_SECONDS)
+    raise AssertionError("unreachable")  # loop sempre retorna ou levanta
 
 
 def init_session(cfg: GlpiConfig) -> str:
