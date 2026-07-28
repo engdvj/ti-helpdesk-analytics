@@ -11,15 +11,15 @@ Env:
 """
 from __future__ import annotations
 
-import logging
 import os
 import threading
 import time
 
 from api.app.db import SessionLocal
 from api.app.services import collection_jobs
+from ti_analytics.utils.logging import get_logger
 
-log = logging.getLogger("auto_collect")
+log = get_logger("auto_collect")
 
 REQUESTED_BY_AUTO = "auto"
 
