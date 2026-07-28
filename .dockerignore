@@ -1,0 +1,13 @@
+# Contexto de build da imagem da API (docker-compose.yml: api.build.context = .)
+# - so filtra o que sobe pro daemon antes do build, o Dockerfile ja so copia
+# pyproject.toml/README/src/api/pipeline config e schemas explicitamente.
+.venv
+.git
+frontend/node_modules
+frontend/.next
+pipeline/data
+*.db
+__pycache__
+**/__pycache__
+.pytest_cache
+.claude

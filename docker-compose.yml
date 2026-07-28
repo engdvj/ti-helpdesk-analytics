@@ -2,7 +2,10 @@
 # uso e so na rede interna do hospital, acessado por IP:porta (ver CLAUDE.md,
 # "Hospedagem" - coleta e host de producao ainda sao decisoes em aberto).
 # `docker compose up -d --build` sobe tudo; a API le pipeline/data/gold via
-# volume (a coleta roda no host com `ti-analytics coletar`, fora do container).
+# volume. Coleta roda tanto pelo host (`ti-analytics coletar`) quanto pelo
+# botao "Rodar coleta" do painel /admin (POST /admin/collect, dentro do
+# container) - por isso as credenciais GLPI_* precisam estar no environment
+# do servico `api` tambem, nao so no .env do host.
 services:
   db:
     image: postgres:16
@@ -27,6 +30,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-ti_analytics}:${POSTGRES_PASSWORD:-ti_analytics}@db:5432/${POSTGRES_DB:-ti_analytics}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?defina ADMIN_USERNAME no .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD no .env}
+      GLPI_URL: ${GLPI_URL:?defina GLPI_URL no .env}
+      GLPI_API_PATH: ${GLPI_API_PATH:-/api.php/v1}
+      GLPI_APP_TOKEN: ${GLPI_APP_TOKEN:?defina GLPI_APP_TOKEN no .env}
+      GLPI_USER_TOKEN: ${GLPI_USER_TOKEN:?defina GLPI_USER_TOKEN no .env}
     volumes:
       - ./pipeline/data:/app/pipeline/data
     ports:
