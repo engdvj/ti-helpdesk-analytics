@@ -15,6 +15,7 @@ from api.app.db import get_db
 from api.app.models.collection_run import CollectionRun
 from api.app.models.technician import Technician
 from api.app.models.unit import Unit
+from api.app.routers.auth import hash_password
 from api.app.schemas.collection_run import CollectionRunOut, CollectionRunPage, CollectionRunStatus
 from api.app.schemas.technician import TechnicianOut
 from api.app.services.collection_jobs import (
@@ -528,6 +529,23 @@ def update_technician_profile(users_id: int, payload: TechnicianProfileUpdate, d
     db.commit()
     db.refresh(tech)
     return tech
+
+
+class TechnicianPasswordSet(BaseModel):
+    senha: str = Field(min_length=4, max_length=200)
+
+
+@router.post("/technicians/{users_id}/password", dependencies=[Depends(require_admin)])
+def set_technician_password(users_id: int, payload: TechnicianPasswordSet, db: Session = Depends(get_db)):
+    """Provisiona/reseta a senha de login do tecnico (ver `routers/auth.py`).
+    So o admin define - o tecnico nao se autocadastra; depois de logado ele
+    pode trocar a propria senha via `POST /auth/change-password`."""
+    tech = db.get(Technician, users_id)
+    if tech is None:
+        raise HTTPException(404, "tecnico nao encontrado")
+    tech.password_hash = hash_password(payload.senha)
+    db.commit()
+    return {"ok": True}
 
 
 def _read_parquet_or_empty(path) -> pd.DataFrame:

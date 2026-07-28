@@ -55,6 +55,9 @@ def ensure_additive_columns() -> None:
         "ALTER TABLE competency_situations ADD COLUMN procedimento_opcoes JSON",
         "ALTER TABLE competency_situations ADD COLUMN procedimento_valor JSON",
         "ALTER TABLE competency_assessments ADD COLUMN resposta JSON",
+        "ALTER TABLE technicians ADD COLUMN password_hash VARCHAR",
+        "ALTER TABLE competency_assessments ADD COLUMN avaliador_users_id INTEGER",
+        "ALTER TABLE competency_assessments ADD COLUMN anonimo BOOLEAN NOT NULL DEFAULT 0",
     ]
     for stmt in additions:
         try:

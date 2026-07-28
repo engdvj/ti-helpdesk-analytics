@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.app.db import Base, SessionLocal, engine, ensure_additive_columns
-from api.app.routers import admin, competencies, technicians, units
+from api.app.routers import admin, auth, competencies, technicians, units
 from api.app.routers.analytics import snapshots as analytics_snapshots
 from api.app.seed import seed_competency_activity_types, seed_technicians, seed_units
 from api.app.services.collection_jobs import mark_interrupted_collection_runs
@@ -45,6 +45,7 @@ app.add_middleware(
 app.include_router(units.router)
 app.include_router(technicians.router)
 app.include_router(admin.router)
+app.include_router(auth.router)
 app.include_router(competencies.router)
 app.include_router(analytics_snapshots.router)
 

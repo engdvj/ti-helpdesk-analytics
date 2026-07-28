@@ -25,6 +25,7 @@ api = [
     "sqlalchemy>=2.0",
     "psycopg2-binary>=2.9",
     "pydantic>=2.6",
+    "bcrypt>=4.0",
 ]
 
 [project.scripts]

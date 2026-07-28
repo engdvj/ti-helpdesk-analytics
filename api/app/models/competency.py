@@ -87,5 +87,12 @@ class CompetencyAssessment(Base):
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
     avaliado_por: Mapped[str] = mapped_column(String(120))
     avaliado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    # None = avaliacao antiga (feita pelo admin, antes da avaliacao entre
+    # pares existir) ou avaliacao feita pelo proprio admin hoje - so linhas
+    # de tecnico logado tem avaliador_users_id preenchido.
+    avaliador_users_id: Mapped[int | None] = mapped_column(
+        ForeignKey("technicians.users_id"), nullable=True, index=True
+    )
+    anonimo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     situacao: Mapped[CompetencySituation] = relationship(back_populates="avaliacoes")
