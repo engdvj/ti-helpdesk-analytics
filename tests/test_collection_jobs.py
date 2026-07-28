@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -141,6 +141,99 @@ def test_collection_history_supports_sort_filter_and_pagination(session_factory)
         # tabela esta em outro status, mantendo o botao protegido.
         assert parsed_errors.active is not None
         assert parsed_errors.active.id == active.id
+
+
+def _make_snapshot(raw_dir, endpoints: list[str], collected_at: str, date: str = "20260101") -> None:
+    for endpoint in endpoints:
+        folder = raw_dir / "glpi" / endpoint / f"date={date}" / f"collected_at={collected_at}"
+        folder.mkdir(parents=True)
+        (folder / "data.json").write_text("{}")
+
+
+def test_prune_old_collections_keeps_only_the_most_recent_raw_snapshots(tmp_path, session_factory, monkeypatch):
+    monkeypatch.setattr(collection_jobs, "RAW_DIR", tmp_path)
+    # formato real de utc_timestamp_compact() e YYYYMMDDHHMMSS (14 digitos,
+    # largura fixa) - largura variavel quebraria a ordenacao lexicografica
+    # que prune_old_collections assume.
+    timestamps = [f"202601010000{i:02d}" for i in range(12)]
+    for ts in timestamps:
+        _make_snapshot(tmp_path, ["entity", "ticket"], ts)
+
+    with session_factory() as db:
+        collection_jobs.prune_old_collections(db, keep=10)
+
+    glpi_dir = tmp_path / "glpi"
+    remaining = {p.name.removeprefix("collected_at=") for p in glpi_dir.glob("*/date=*/collected_at=*")}
+    assert remaining == set(timestamps[2:])  # os 10 mais recentes (ordem lexicografica = cronologica aqui)
+
+
+def test_prune_old_collections_removes_the_now_empty_date_folder(tmp_path, session_factory, monkeypatch):
+    monkeypatch.setattr(collection_jobs, "RAW_DIR", tmp_path)
+    _make_snapshot(tmp_path, ["entity"], "20260101000000")
+
+    with session_factory() as db:
+        collection_jobs.prune_old_collections(db, keep=0)
+
+    assert not (tmp_path / "glpi" / "entity" / "date=20260101").exists()
+
+
+def test_prune_old_collections_keeps_only_the_most_recent_runs(session_factory):
+    with session_factory() as db:
+        # create_collection_run rejeita concorrencia (so 1 run "ativo" por
+        # vez) - precisa fechar cada run antes de criar o proximo, nao dá
+        # pra criar os 12 primeiro e marcar sucesso depois.
+        runs = []
+        for i in range(12):
+            run = collection_jobs.create_collection_run(db, "admin")
+            run.status = "success"
+            run.requested_at = collection_jobs.utc_now() - timedelta(hours=12 - i)
+            db.commit()
+            runs.append(run)
+
+        collection_jobs.prune_old_collections(db, keep=10)
+
+        remaining_ids = {r.id for r in db.scalars(select(CollectionRun)).all()}
+        assert remaining_ids == {r.id for r in runs[2:]}  # os 10 mais recentes
+
+
+def test_prune_old_collections_never_deletes_an_active_run(session_factory):
+    with session_factory() as db:
+        old_runs = []
+        for i in range(3):
+            run = collection_jobs.create_collection_run(db, "admin")
+            run.status = "success"
+            run.requested_at = collection_jobs.utc_now() - timedelta(days=10 - i)
+            db.commit()
+            old_runs.append(run)
+
+        collection_jobs.prune_old_collections(db, keep=1)
+
+        remaining = db.scalars(select(CollectionRun)).all()
+        # so a mais recente das antigas sobrevive - nao existe run ativa aqui,
+        # entao o filtro de status simplesmente nao teve nada pra proteger.
+        assert {r.id for r in remaining} == {old_runs[-1].id}
+
+
+def test_execute_collection_run_prunes_automatically_on_success(tmp_path, session_factory, monkeypatch):
+    monkeypatch.setattr(collection_jobs, "RAW_DIR", tmp_path)
+    monkeypatch.setattr(collection_jobs, "run_pipeline", lambda: {"chamados_ti": 1})
+    monkeypatch.setattr(collection_jobs, "seed_units", lambda db: None)
+    monkeypatch.setattr(collection_jobs, "seed_technicians", lambda db: None)
+
+    with session_factory() as db:
+        for i in range(10):
+            run = collection_jobs.create_collection_run(db, "admin")
+            run.status = "success"
+            run.requested_at = collection_jobs.utc_now() - timedelta(hours=10 - i)
+            db.commit()
+
+        latest = collection_jobs.create_collection_run(db, "admin")
+        run_id = latest.id
+
+    collection_jobs.execute_collection_run(run_id)
+
+    with session_factory() as db:
+        assert len(db.scalars(select(CollectionRun)).all()) == 10  # a nova entrou, a mais antiga saiu
 
 
 def test_collection_schema_restores_utc_timezone_from_sqlite():

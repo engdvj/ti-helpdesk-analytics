@@ -6,6 +6,7 @@ desmontada.
 """
 from __future__ import annotations
 
+import shutil
 import traceback
 from datetime import datetime, timezone
 from threading import Lock
@@ -18,10 +19,15 @@ from api.app.db import SessionLocal
 from api.app.models.collection_run import CollectionRun
 from api.app.seed import seed_technicians, seed_units
 from ti_analytics.glpi.pipeline import run as run_pipeline
+from ti_analytics.paths import RAW_DIR
 
 ACTIVE_COLLECTION_STATUSES = ("queued", "running")
 _start_lock = Lock()
 _execution_lock = Lock()
+# Cada coleta bem-sucedida grava ~10 arquivos brutos em pipeline/data/raw/glpi
+# (um por endpoint - ver pipeline.py::_raw_path) e uma linha em CollectionRun.
+# Silver/gold nunca entram aqui: sao sobrescritos a cada coleta, nao acumulam.
+COLLECTION_RETENTION = 10
 
 
 class CollectionAlreadyRunningError(RuntimeError):
@@ -112,10 +118,54 @@ def execute_collection_run(run_id: str) -> None:
                 run.error = None
                 run.error_details = None
                 db.commit()
+                prune_old_collections(db)
             except Exception as exc:
                 _mark_failed(db, run_id, exc)
         finally:
             db.close()
+
+
+def _snapshot_timestamps() -> list[str]:
+    """`collected_at=` distintos em pipeline/data/raw/glpi/*/date=*/, do mais
+    recente pro mais antigo. Uma coleta grava o mesmo `ts` em ~10 subpastas
+    (uma por endpoint - ver pipeline.py::_raw_path), entao cada timestamp
+    aqui corresponde a exatamente uma coleta."""
+    glpi_dir = RAW_DIR / "glpi"
+    if not glpi_dir.exists():
+        return []
+    timestamps = {
+        p.name.removeprefix("collected_at=")
+        for p in glpi_dir.glob("*/date=*/collected_at=*")
+        if p.is_dir()
+    }
+    return sorted(timestamps, reverse=True)
+
+
+def prune_old_collections(db: Session, keep: int = COLLECTION_RETENTION) -> None:
+    """Mantem so as `keep` coletas mais recentes: apaga o snapshot bruto
+    (pipeline/data/raw/glpi/.../collected_at=...) das mais antigas - o que
+    realmente ocupa espaco - e as linhas correspondentes de CollectionRun,
+    que ficam leves o bastante pra nao precisar de retencao separada.
+    Silver/gold nao entram aqui - sao sobrescritos a cada coleta."""
+    for ts in _snapshot_timestamps()[keep:]:
+        for collected_dir in (RAW_DIR / "glpi").glob(f"*/date=*/collected_at={ts}"):
+            shutil.rmtree(collected_dir, ignore_errors=True)
+            date_dir = collected_dir.parent
+            if date_dir.exists() and not any(date_dir.iterdir()):
+                date_dir.rmdir()
+
+    old_runs = list(
+        db.scalars(
+            select(CollectionRun)
+            .where(CollectionRun.status.notin_(ACTIVE_COLLECTION_STATUSES))
+            .order_by(CollectionRun.requested_at.desc())
+            .offset(keep)
+        ).all()
+    )
+    for run in old_runs:
+        db.delete(run)
+    if old_runs:
+        db.commit()
 
 
 def mark_interrupted_collection_runs(db: Session) -> int:

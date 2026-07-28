@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.app.db import Base, SessionLocal, engine, ensure_additive_columns
 from api.app.routers import admin, auth, competencies, technicians, units
 from api.app.routers.analytics import snapshots as analytics_snapshots
+from api.app.scheduler import start_auto_collect
 from api.app.seed import seed_competency_activity_types, seed_technicians, seed_units
 from api.app.services.collection_jobs import mark_interrupted_collection_runs
 
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
         pass
     finally:
         db.close()
+    start_auto_collect()
     yield
 
 

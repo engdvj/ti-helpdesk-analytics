@@ -36,6 +36,7 @@ services:
       GLPI_API_PATH: ${GLPI_API_PATH:-/api.php/v1}
       GLPI_APP_TOKEN: ${GLPI_APP_TOKEN:?defina GLPI_APP_TOKEN no .env}
       GLPI_USER_TOKEN: ${GLPI_USER_TOKEN:?defina GLPI_USER_TOKEN no .env}
+      AUTO_COLLECT_MINUTES: ${AUTO_COLLECT_MINUTES:-0}
     volumes:
       - ./pipeline/data:/app/pipeline/data
     ports:
