@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session
 
 from api.app.db import get_db
 from api.app.models.technician import Technician
+from api.app.routers.auth import require_session
 from api.app.schemas.technician import TechnicianOut
 
 router = APIRouter(prefix="/technicians", tags=["technicians"])
 
 
-@router.get("", response_model=list[TechnicianOut])
+@router.get("", response_model=list[TechnicianOut], dependencies=[Depends(require_session)])
 def list_technicians(
     papel: str | None = Query(None, description="filtra por coordenadora/tatico/plantonista"),
     include_inactive: bool = Query(False, description="inclui tecnicos inativos (uso do admin)"),

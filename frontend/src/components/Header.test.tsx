@@ -19,8 +19,7 @@ vi.mock("@/components/PeriodRangePicker", () => ({ PeriodRangePicker: () => <spa
 vi.mock("@/components/ScoreModeSwitcher", () => ({ ScoreModeSwitcher: () => <span data-testid="score-mode" /> }));
 vi.mock("@/components/MetricSwitcher", () => ({ MetricSwitcher: () => <span data-testid="metric" /> }));
 vi.mock("@/components/SnapshotPlayback", () => ({ SnapshotPlayback: () => <span data-testid="playback" /> }));
-vi.mock("@/components/AdminLink", () => ({ AdminLink: () => <span data-testid="admin" /> }));
-vi.mock("@/components/ThemeToggle", () => ({ ThemeToggle: () => <span data-testid="theme" /> }));
+vi.mock("@/components/UserMenu", () => ({ UserMenu: () => <span data-testid="user-menu" /> }));
 
 describe("Header", () => {
   afterEach(() => cleanup());
@@ -44,7 +43,6 @@ describe("Header", () => {
     render(<Header />);
 
     expect(screen.queryByRole("region", { name: "Período da análise" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("admin")).toBeInTheDocument();
-    expect(screen.getByTestId("theme")).toBeInTheDocument();
+    expect(screen.getByTestId("user-menu")).toBeInTheDocument();
   });
 });

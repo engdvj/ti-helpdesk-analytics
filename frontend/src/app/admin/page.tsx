@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 
 import { CategoryDifficultyPanel } from "@/components/admin/CategoryDifficultyPanel";
@@ -37,18 +38,25 @@ const ADMIN_TABS: { key: AdminTab; label: string }[] = [
 ];
 
 export default function AdminPage() {
-  const { isAdmin, lock } = useAdmin();
+  const { isAdmin } = useAdmin();
   const [tab, setTab] = useState<AdminTab>("coleta");
+  const router = useRouter();
 
-  if (!isAdmin) return <LoginForm />;
+  // Sem tela de login propria aqui: o login unico do AuthGate (layout.tsx)
+  // ja decide quem e admin - se a sessao atual nao for de admin, nao tem
+  // credencial nenhuma pra pedir de novo (so o login geral concede admin).
+  // Sem sessao de admin, nao faz sentido nem mostrar essa rota - manda pro
+  // dashboard geral em vez de deixar uma pagina "acesso restrito" parada.
+  useEffect(() => {
+    if (!isAdmin) router.replace("/u/geral/dashboard");
+  }, [isAdmin, router]);
+
+  if (!isAdmin) return null;
 
   return (
     <main className="sumula-container-hub admin-page" style={{ flex: 1 }}>
       <div className="admin-page-header">
         <h1>Admin</h1>
-        <Botao variant="destrutivo" onClick={lock}>
-          Sair
-        </Botao>
       </div>
 
       <div style={{ marginBottom: "1.25rem" }}>
@@ -74,62 +82,6 @@ export default function AdminPage() {
       )}
 
       {tab === "categorias" && <CategoryDifficultyPanel />}
-    </main>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.6rem 0.75rem",
-  border: "1.5px solid var(--linha)",
-  background: "var(--superficie)",
-  color: "var(--tinta)",
-  fontSize: "var(--fonte-corpo)",
-};
-
-function LoginForm() {
-  const { unlock } = useAdmin();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const ok = await unlock(username, password);
-    setLoading(false);
-    if (!ok) setError("Usuário ou senha incorretos.");
-  }
-
-  return (
-    <main className="sumula-container-estreita" style={{ flex: 1 }}>
-      <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--fonte-titulo)", fontWeight: 600, marginBottom: "1.25rem" }}>
-        Entrar como admin
-      </h1>
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Usuário"
-          autoFocus
-          autoComplete="username"
-          style={inputStyle}
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Senha"
-          autoComplete="current-password"
-          style={inputStyle}
-        />
-        {error && <p style={{ color: "var(--critico)", fontSize: "var(--fonte-label)" }}>{error}</p>}
-        <Botao type="submit" variant="primario" disabled={loading || !username || !password}>
-          {loading ? "Verificando..." : "Entrar"}
-        </Botao>
-      </form>
     </main>
   );
 }
@@ -537,6 +489,10 @@ function TechnicianRow({ tech, units, onSaved }: { tech: Technician; units: Unit
   const [fotoDraft, setFotoDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [novaSenha, setNovaSenha] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordResult, setPasswordResult] = useState<string | null>(null);
 
   const dirty = papel !== tech.papel
     || ativo !== tech.ativo
@@ -579,6 +535,23 @@ function TechnicianRow({ tech, units, onSaved }: { tech: Technician; units: Unit
       setError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function savePassword() {
+    if (!credentials || novaSenha.trim().length < 4) return;
+    setSavingPassword(true);
+    setPasswordResult(null);
+    try {
+      await adminApi.setTechnicianPassword(tech.users_id, novaSenha.trim(), credentials);
+      setPasswordResult("Senha definida.");
+      setNovaSenha("");
+      setShowPasswordForm(false);
+      await mutateGlobal((key) => Array.isArray(key) && key[0] === "technicians");
+    } catch (err) {
+      setPasswordResult((err as Error).message);
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -643,6 +616,42 @@ function TechnicianRow({ tech, units, onSaved }: { tech: Technician; units: Unit
       <Botao variant="primario" onClick={save} disabled={!dirty || saving}>
         {saving ? "Salvando..." : "Salvar"}
       </Botao>
+
+      <div className="admin-tech-access">
+        <div className="admin-tech-access-summary">
+          <span className="admin-tech-access-label">Acesso</span>
+          <span>
+            Usuário <strong>{tech.username}</strong> <small>(sincronizado do GLPI)</small>
+          </span>
+          <span className={`admin-tech-access-badge ${tech.tem_senha ? "is-active" : "is-inactive"}`}>
+            {tech.tem_senha ? "Login habilitado" : "Sem senha definida"}
+          </span>
+        </div>
+        <Botao
+          onClick={() => { setShowPasswordForm((current) => !current); setPasswordResult(null); }}
+        >
+          {showPasswordForm ? "Cancelar" : tech.tem_senha ? "Redefinir senha" : "Definir senha"}
+        </Botao>
+
+        {showPasswordForm && (
+          <div className="admin-tech-password-form">
+            <input
+              aria-label={`Nova senha de ${tech.nome_completo}`}
+              type="password"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              placeholder="Nova senha (mín. 4 caracteres)"
+              minLength={4}
+              className="admin-tech-input"
+            />
+            <Botao variant="primario" onClick={savePassword} disabled={novaSenha.trim().length < 4 || savingPassword}>
+              {savingPassword ? "Salvando..." : "Confirmar"}
+            </Botao>
+          </div>
+        )}
+
+        {passwordResult && <p className="admin-panel-result">{passwordResult}</p>}
+      </div>
 
       {error && <p className="admin-panel-result is-error">{error}</p>}
     </div>

@@ -17,6 +17,7 @@ from api.app.models.competency import (
 )
 from api.app.models.technician import Technician
 from api.app.routers.admin import require_admin
+from api.app.routers.auth import CurrentIdentity, require_session
 from api.app.schemas.competency import (
     CompetencyActivityCreate,
     CompetencyActivityOut,
@@ -107,10 +108,34 @@ def _situation_out(situation: CompetencySituation) -> CompetencySituationOut:
     )
 
 
-def _latest_assessments(
+def _redact(assessment: CompetencyAssessment) -> CompetencyAssessmentOut:
+    """`avaliado_por`/`avaliador_users_id` somem quando a avaliacao e
+    anonima - pra qualquer leitor, inclusive o admin (nao ha excecao)."""
+    out = CompetencyAssessmentOut.model_validate(assessment)
+    if out.anonimo:
+        out = out.model_copy(update={"avaliado_por": "Anônimo", "avaliador_users_id": None})
+    return out
+
+
+class _Aggregate:
+    __slots__ = ("pontos", "avaliacoes")
+
+    def __init__(self) -> None:
+        self.pontos: float = 0.0
+        self.avaliacoes: list[CompetencyAssessment] = []
+
+
+def _aggregated_assessments(
     db: Session,
     users_ids: set[int] | None = None,
-) -> dict[tuple[int, int], CompetencyAssessment]:
+) -> dict[tuple[int, int], _Aggregate]:
+    """Uma avaliacao por AVALIADOR (a mais recente, se ele reavaliou a mesma
+    situacao mais de uma vez) por (tecnico, situacao), depois a MEDIA dos
+    pontos entre avaliadores distintos - nao a "ultima avaliacao" de
+    qualquer um. Avaliador = avaliador_users_id (tecnico logado) ou, pra
+    avaliacoes antigas/do admin (avaliador_users_id nulo), o proprio
+    avaliado_por (string) - assim o admin reavaliando so substitui a propria
+    nota, nunca soma outra entrada."""
     stmt = select(CompetencyAssessment).order_by(
         CompetencyAssessment.avaliado_em.desc(),
         CompetencyAssessment.id.desc(),
@@ -119,10 +144,27 @@ def _latest_assessments(
         if not users_ids:
             return {}
         stmt = stmt.where(CompetencyAssessment.users_id.in_(users_ids))
-    latest: dict[tuple[int, int], CompetencyAssessment] = {}
+
+    latest_per_evaluator: dict[tuple[int, int, str], CompetencyAssessment] = {}
     for assessment in db.scalars(stmt):
-        latest.setdefault((assessment.users_id, assessment.situacao_id), assessment)
-    return latest
+        evaluator_key = (
+            str(assessment.avaliador_users_id)
+            if assessment.avaliador_users_id is not None
+            else f"admin:{assessment.avaliado_por}"
+        )
+        key = (assessment.users_id, assessment.situacao_id, evaluator_key)
+        latest_per_evaluator.setdefault(key, assessment)
+
+    aggregates: dict[tuple[int, int], _Aggregate] = {}
+    for (users_id, situacao_id, _evaluator_key), assessment in latest_per_evaluator.items():
+        agg = aggregates.setdefault((users_id, situacao_id), _Aggregate())
+        agg.avaliacoes.append(assessment)
+
+    for agg in aggregates.values():
+        agg.avaliacoes.sort(key=lambda a: (a.avaliado_em, a.id), reverse=True)
+        agg.pontos = sum(a.pontos for a in agg.avaliacoes) / len(agg.avaliacoes)
+
+    return aggregates
 
 
 def _level(percentual: float, avaliadas: int) -> str:
@@ -138,9 +180,9 @@ def _level(percentual: float, avaliadas: int) -> str:
 def _summary(
     technician: Technician,
     situations: list[CompetencySituation],
-    latest: dict[tuple[int, int], CompetencyAssessment],
+    aggregated: dict[tuple[int, int], _Aggregate],
 ) -> CompetencyTechnicianSummary:
-    current = [latest.get((technician.users_id, situation.id)) for situation in situations]
+    current = [aggregated.get((technician.users_id, situation.id)) for situation in situations]
     pontos = sum(min(item.pontos, situation.pontos_maximos) for item, situation in zip(current, situations) if item)
     pontos_maximos = sum(situation.pontos_maximos for situation in situations)
     avaliadas = sum(item is not None for item in current)
@@ -161,7 +203,7 @@ def _summary(
     )
 
 
-@router.get("/catalog", response_model=list[CompetencyActivityOut])
+@router.get("/catalog", response_model=list[CompetencyActivityOut], dependencies=[Depends(require_session)])
 def list_catalog(
     include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
@@ -169,7 +211,7 @@ def list_catalog(
     return [_activity_out(activity, include_inactive) for activity in _catalog(db, include_inactive)]
 
 
-@router.get("/activity-types", response_model=list[CompetencyActivityTypeOut])
+@router.get("/activity-types", response_model=list[CompetencyActivityTypeOut], dependencies=[Depends(require_session)])
 def list_activity_types(
     include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
@@ -394,7 +436,7 @@ def delete_situation(situation_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.get("/matrix", response_model=list[CompetencyTechnicianSummary])
+@router.get("/matrix", response_model=list[CompetencyTechnicianSummary], dependencies=[Depends(require_session)])
 def competency_matrix(
     unidade_slug: str | None = Query(None),
     db: Session = Depends(get_db),
@@ -407,26 +449,30 @@ def competency_matrix(
             or_(Technician.unidade_slug == unidade_slug, Technician.unidade_slug.is_(None))
         )
     technicians = list(db.scalars(tech_stmt.order_by(Technician.nome_completo)).all())
-    latest = _latest_assessments(db, {tech.users_id for tech in technicians})
-    summaries = [_summary(tech, situations, latest) for tech in technicians]
+    aggregated = _aggregated_assessments(db, {tech.users_id for tech in technicians})
+    summaries = [_summary(tech, situations, aggregated) for tech in technicians]
     return sorted(summaries, key=lambda item: (-item.percentual, -item.situacoes_avaliadas, item.nome.casefold()))
 
 
-@router.get("/technicians/{users_id}", response_model=CompetencyTechnicianDetail)
+@router.get(
+    "/technicians/{users_id}",
+    response_model=CompetencyTechnicianDetail,
+    dependencies=[Depends(require_session)],
+)
 def technician_competencies(users_id: int, db: Session = Depends(get_db)):
     technician = db.get(Technician, users_id)
     if technician is None:
         raise HTTPException(404, "Técnico não encontrado.")
     activities = _catalog(db)
     situations = [s for activity in activities for s in activity.situacoes if s.ativa]
-    latest = _latest_assessments(db, {users_id})
-    base = _summary(technician, situations, latest)
+    aggregated = _aggregated_assessments(db, {users_id})
+    base = _summary(technician, situations, aggregated)
     activity_progress: list[CompetencyActivityProgress] = []
     for activity in activities:
         activity_situations = [s for s in activity.situacoes if s.ativa]
         situation_progress: list[CompetencySituationProgress] = []
         for situation in activity_situations:
-            assessment = latest.get((users_id, situation.id))
+            agg = aggregated.get((users_id, situation.id))
             situation_progress.append(CompetencySituationProgress(
                 id=situation.id,
                 nome=situation.nome,
@@ -442,9 +488,10 @@ def technician_competencies(users_id: int, db: Session = Depends(get_db)):
                 pontos_maximos=situation.pontos_maximos,
                 tipo_campo=situation.tipo_campo,
                 opcoes=situation.opcoes or [],
-                pontos=min(assessment.pontos, situation.pontos_maximos) if assessment else 0,
-                avaliada=assessment is not None,
-                ultima_avaliacao=CompetencyAssessmentOut.model_validate(assessment) if assessment else None,
+                pontos=min(agg.pontos, situation.pontos_maximos) if agg else 0,
+                avaliada=agg is not None,
+                n_avaliacoes=len(agg.avaliacoes) if agg else 0,
+                avaliacoes=[_redact(a) for a in agg.avaliacoes] if agg else [],
             ))
         max_points = sum(s.pontos_maximos for s in activity_situations)
         points = sum(s.pontos for s in situation_progress)
@@ -472,9 +519,12 @@ def technician_competencies(users_id: int, db: Session = Depends(get_db)):
 )
 def create_assessment(
     payload: CompetencyAssessmentCreate,
-    avaliado_por: str = Depends(require_admin),
+    current: CurrentIdentity = Depends(require_session),
     db: Session = Depends(get_db),
 ):
+    if current.subject_type == "tecnico" and payload.users_id == current.users_id:
+        raise HTTPException(422, "Você não pode avaliar a si mesmo.")
+
     technician = db.get(Technician, payload.users_id)
     if technician is None:
         raise HTTPException(404, "Técnico não encontrado.")
@@ -508,22 +558,32 @@ def create_assessment(
         raise HTTPException(422, "Tipo de avaliação não suportado.")
     if awarded_points > situation.pontos_maximos:
         raise HTTPException(422, f"A pontuação máxima desta situação é {situation.pontos_maximos:g}.")
-    assessment_data = payload.model_dump()
+
+    assessment_data = payload.model_dump(exclude={"anonimo"})
     assessment_data["pontos"] = awarded_points
+    is_tecnico = current.subject_type == "tecnico"
     assessment = CompetencyAssessment(
         **assessment_data,
-        avaliado_por=avaliado_por,
+        avaliado_por=current.nome_completo or "Admin",
+        avaliador_users_id=current.users_id if is_tecnico else None,
+        # Admin nao tem opcao de anonimato - so tecnico avaliando colega.
+        anonimo=payload.anonimo if is_tecnico else False,
     )
     db.add(assessment)
     db.commit()
     db.refresh(assessment)
-    return assessment
+    return _redact(assessment)
 
 
-@router.get("/technicians/{users_id}/history", response_model=list[CompetencyAssessmentOut])
+@router.get(
+    "/technicians/{users_id}/history",
+    response_model=list[CompetencyAssessmentOut],
+    dependencies=[Depends(require_session)],
+)
 def assessment_history(users_id: int, db: Session = Depends(get_db)):
-    return list(db.scalars(
+    assessments = db.scalars(
         select(CompetencyAssessment)
         .where(CompetencyAssessment.users_id == users_id)
         .order_by(CompetencyAssessment.avaliado_em.desc(), CompetencyAssessment.id.desc())
-    ).all())
+    ).all()
+    return [_redact(a) for a in assessments]

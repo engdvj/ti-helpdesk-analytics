@@ -800,7 +800,7 @@ function CompetencyIndicatorsTab({ data }: { data: CompetencyTechnicianDetail })
       || (a.pontos / a.pontos_maximos) - (b.pontos / b.pontos_maximos)
       || b.pontos_maximos - a.pontos_maximos)[0] ?? null;
   const latestAssessment = situations
-    .flatMap((situation) => situation.ultima_avaliacao ? [situation.ultima_avaliacao] : [])
+    .flatMap((situation) => situation.avaliacoes)
     .sort((a, b) => new Date(b.avaliado_em).getTime() - new Date(a.avaliado_em).getTime())[0] ?? null;
   const level = COMPETENCY_LEVEL_META[data.nivel];
 
@@ -936,7 +936,6 @@ function CompetencyActivityDetail({ activity }: { activity: CompetencyActivityPr
         {activity.situacoes.map((situation) => {
           const status = competencySituationStatus(situation);
           const meta = COMPETENCY_SITUATION_META[status];
-          const assessment = situation.ultima_avaliacao;
           return (
             <details key={situation.id} className="competency-indicator-situation">
               <summary>
@@ -950,12 +949,16 @@ function CompetencyActivityDetail({ activity }: { activity: CompetencyActivityPr
               <div className="competency-indicator-situation-body">
                 {situation.contexto && <div><span>Situação</span><p>{situation.contexto}</p></div>}
                 <div><span>Critério esperado</span><p>{formatCompetencyContent(situation.procedimento_esperado, situation.procedimento_opcoes, situation.procedimento_valor)}</p></div>
-                {assessment ? (
+                {situation.n_avaliacoes > 0 ? (
                   <div className="is-evidence">
-                    <span>Evidência registrada</span>
-                    <p>{assessment.evidencia || "Avaliação registrada sem evidência textual."}</p>
-                    {assessment.observacao && <small>{assessment.observacao}</small>}
-                    <small>{formatCompetencyDate(assessment.avaliado_em)} · {assessment.avaliado_por}</small>
+                    <span>Média de {situation.n_avaliacoes} avaliaç{situation.n_avaliacoes === 1 ? "ão" : "ões"}</span>
+                    {situation.avaliacoes.map((assessment) => (
+                      <div key={assessment.id} className="competency-indicator-assessment">
+                        <p>{assessment.evidencia || "Avaliação registrada sem evidência textual."}</p>
+                        {assessment.observacao && <small>{assessment.observacao}</small>}
+                        <small>{formatCompetencyDate(assessment.avaliado_em)} · {assessment.avaliado_por}</small>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="is-pending"><span>Próximo passo</span><p>Realizar uma avaliação prática e registrar a evidência observada.</p></div>

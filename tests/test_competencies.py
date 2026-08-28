@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from api.app.db import Base
 from api.app.models.technician import Technician
-from api.app.models.competency import CompetencyActivityType
+from api.app.models.competency import CompetencyActivityType, CompetencyAssessment
+from api.app.routers.auth import CurrentIdentity
 from api.app.routers.competencies import (
+    assessment_history,
     competency_matrix,
     create_activity,
     create_activity_type,
@@ -27,6 +29,13 @@ from api.app.schemas.competency import (
     CompetencyAssessmentCreate,
     CompetencySituationCreate,
 )
+
+
+ADMIN = CurrentIdentity(subject_type="admin", users_id=None, nome_completo="Admin")
+
+
+def _tecnico(users_id: int, nome: str) -> CurrentIdentity:
+    return CurrentIdentity(subject_type="tecnico", users_id=users_id, nome_completo=nome)
 
 
 @pytest.fixture
@@ -50,6 +59,15 @@ def db():
             users_id=2,
             username="bruno",
             nome_completo="Bruno Lima",
+            glpi_profile="Technician",
+            papel="plantonista",
+            ativo=True,
+            unidade_slug=None,
+        ),
+        Technician(
+            users_id=3,
+            username="carla",
+            nome_completo="Carla Souza",
             glpi_profile="Technician",
             papel="plantonista",
             ativo=True,
@@ -94,12 +112,12 @@ def test_progress_uses_latest_assessment_and_preserves_history(db: Session):
     _, first, second = _catalog(db)
     create_assessment(
         CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=2, evidencia="Executou com apoio"),
-        "admin",
+        ADMIN,
         db,
     )
     latest = create_assessment(
         CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=4, evidencia="Executou sozinho"),
-        "admin",
+        ADMIN,
         db,
     )
 
@@ -110,10 +128,13 @@ def test_progress_uses_latest_assessment_and_preserves_history(db: Session):
     assert detail.percentual == 66.7
     assert detail.situacoes_avaliadas == 1
     assert detail.nivel == "competente"
-    assert detail.atividades[0].situacoes[0].ultima_avaliacao.id == latest.id
+    # Mesmo avaliador (admin) reavaliando a mesma situacao colapsa pra uma so
+    # entrada (a mais recente) - nao vira "2 avaliadores", so 2 no historico.
+    assert detail.atividades[0].situacoes[0].n_avaliacoes == 1
+    assert detail.atividades[0].situacoes[0].avaliacoes[0].id == latest.id
     assert detail.atividades[0].situacoes[1].avaliada is False
 
-    assessments = db.query(type(latest)).filter_by(users_id=1, situacao_id=first.id).all()
+    assessments = db.query(CompetencyAssessment).filter_by(users_id=1, situacao_id=first.id).all()
     assert len(assessments) == 2
     assert second.pontos_maximos == 2
 
@@ -122,13 +143,15 @@ def test_matrix_respects_unit_and_orders_by_progress(db: Session):
     _, first, _ = _catalog(db)
     create_assessment(
         CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=4),
-        "coordenacao",
+        ADMIN,
         db,
     )
 
     matrix = competency_matrix("hospital-a", db)
 
-    assert [item.users_id for item in matrix] == [1, 2]
+    # tecnico 3 (Carla) tambem atua "em todo o complexo" (unidade_slug=None,
+    # mesmo criterio do Bruno) - entra no filtro por hospital-a igual.
+    assert [item.users_id for item in matrix] == [1, 2, 3]
     assert matrix[0].percentual > matrix[1].percentual
     assert matrix[1].nivel == "nao_avaliado"
 
@@ -139,7 +162,7 @@ def test_assessment_cannot_exceed_situation_maximum(db: Session):
     with pytest.raises(HTTPException) as exc_info:
         create_assessment(
             CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=5),
-            "admin",
+            ADMIN,
             db,
         )
 
@@ -188,7 +211,7 @@ def test_option_fields_compute_points_on_server(db: Session):
             pontos=99,
             resposta="autonomo",
         ),
-        "admin",
+        ADMIN,
         db,
     )
     multiple_result = create_assessment(
@@ -197,7 +220,7 @@ def test_option_fields_compute_points_on_server(db: Session):
             situacao_id=multiple.id,
             resposta=["identidade", "registro"],
         ),
-        "admin",
+        ADMIN,
         db,
     )
 
@@ -211,7 +234,7 @@ def test_delete_is_permanent_only_without_assessment_history(db: Session):
     activity, assessed, _ = _catalog(db)
     create_assessment(
         CompetencyAssessmentCreate(users_id=1, situacao_id=assessed.id, pontos=2),
-        "admin",
+        ADMIN,
         db,
     )
 
@@ -302,3 +325,99 @@ def test_scope_and_procedure_accept_configurable_content_fields(db: Session):
     progress = detail.atividades[0]
     assert progress.escopo_opcoes[1].rotulo == "Acesso remoto"
     assert progress.situacoes[0].procedimento_opcoes[0].rotulo == "Validar identidade"
+
+
+def test_tecnico_pode_avaliar_colega(db: Session):
+    _, first, _ = _catalog(db)
+    result = create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=3),
+        _tecnico(2, "Bruno Lima"),
+        db,
+    )
+    assert result.avaliador_users_id == 2
+    assert result.avaliado_por == "Bruno Lima"
+
+
+def test_tecnico_nao_pode_avaliar_a_si_mesmo(db: Session):
+    _, first, _ = _catalog(db)
+    with pytest.raises(HTTPException) as exc_info:
+        create_assessment(
+            CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=3),
+            _tecnico(1, "Ana Silva"),
+            db,
+        )
+    assert exc_info.value.status_code == 422
+
+
+def test_nota_final_e_a_media_entre_avaliadores_distintos(db: Session):
+    _, first, _ = _catalog(db)
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=2),
+        _tecnico(2, "Bruno Lima"),
+        db,
+    )
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=4),
+        _tecnico(3, "Carla Souza"),
+        db,
+    )
+
+    detail = technician_competencies(1, db)
+    situacao = detail.atividades[0].situacoes[0]
+    assert situacao.n_avaliacoes == 2
+    assert situacao.pontos == 3  # media de 2 e 4
+
+
+def test_mesmo_avaliador_reavaliando_substitui_a_propria_nota_na_media(db: Session):
+    _, first, _ = _catalog(db)
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=1),
+        _tecnico(2, "Bruno Lima"),
+        db,
+    )
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=4),
+        _tecnico(2, "Bruno Lima"),
+        db,
+    )
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=4),
+        _tecnico(3, "Carla Souza"),
+        db,
+    )
+
+    detail = technician_competencies(1, db)
+    situacao = detail.atividades[0].situacoes[0]
+    # 2 avaliadores distintos (Bruno, Carla), nao 3 avaliacoes - a primeira
+    # nota do Bruno (1) foi substituida pela segunda (4), nao somada.
+    assert situacao.n_avaliacoes == 2
+    assert situacao.pontos == 4  # media de 4 e 4, nao (1+4+4)/3
+
+
+def test_avaliacao_anonima_esconde_identidade_em_toda_leitura(db: Session):
+    _, first, _ = _catalog(db)
+    create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=3, anonimo=True),
+        _tecnico(2, "Bruno Lima"),
+        db,
+    )
+
+    detail = technician_competencies(1, db)
+    avaliacao = detail.atividades[0].situacoes[0].avaliacoes[0]
+    assert avaliacao.avaliado_por == "Anônimo"
+    assert avaliacao.avaliador_users_id is None
+
+    historico = assessment_history(1, db)
+    assert historico[0].avaliado_por == "Anônimo"
+    assert historico[0].avaliador_users_id is None
+
+
+def test_admin_nunca_fica_anonimo_mesmo_pedindo(db: Session):
+    _, first, _ = _catalog(db)
+    result = create_assessment(
+        CompetencyAssessmentCreate(users_id=1, situacao_id=first.id, pontos=3, anonimo=True),
+        ADMIN,
+        db,
+    )
+    assert result.anonimo is False
+    assert result.avaliado_por == "Admin"

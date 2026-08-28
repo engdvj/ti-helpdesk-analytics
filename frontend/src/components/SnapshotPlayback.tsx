@@ -26,7 +26,7 @@ export function SnapshotPlayback() {
   const unit = useUnitOptional();
   const { seqs, snapshotSeq, setSnapshotSeq, playing, setPlaying, periodoAtual } = useSnapshots();
 
-  // Mesmo motivo do gate em AdminLink.tsx: SnapshotProvider fica fora do
+  // Mesmo motivo do gate em UserMenu.tsx: SnapshotProvider fica fora do
   // <Suspense> do Header, entao o fetch+efeito que popula snapshotSeq pode
   // resolver antes do Header (conteudo adiado pelo Suspense) hidratar -
   // sem o gate, o range input as vezes hidrata com value/max ja atualizados

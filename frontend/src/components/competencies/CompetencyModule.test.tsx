@@ -101,7 +101,8 @@ vi.mock("swr", () => ({
             opcoes: [],
             pontos: 2,
             avaliada: true,
-            ultima_avaliacao: {
+            n_avaliacoes: 1,
+            avaliacoes: [{
               id: 30,
               users_id: 7,
               situacao_id: 20,
@@ -111,7 +112,9 @@ vi.mock("swr", () => ({
               observacao: null,
               avaliado_por: "admin",
               avaliado_em: "2026-07-18T15:00:00Z",
-            },
+              anonimo: false,
+              avaliador_users_id: null,
+            }],
           }],
         }],
       },
@@ -125,6 +128,15 @@ vi.mock("@/lib/admin-context", () => ({
   useAdmin: () => ({
     isAdmin: true,
     credentials: { username: "admin", password: "secret" },
+  }),
+}));
+
+vi.mock("@/lib/session-context", () => ({
+  useSession: () => ({
+    isAuthenticated: true,
+    subjectType: "admin",
+    usersId: null,
+    nomeCompleto: "Admin",
   }),
 }));
 
@@ -147,6 +159,8 @@ describe("CompetencyModule", () => {
       observacao: null,
       avaliado_por: "admin",
       avaliado_em: "2026-07-18T16:00:00Z",
+      anonimo: false,
+      avaliador_users_id: null,
     });
     render(<CompetencyModule />);
 
@@ -162,7 +176,6 @@ describe("CompetencyModule", () => {
 
     await waitFor(() => expect(assess).toHaveBeenCalledWith(
       expect.objectContaining({ users_id: 7, situacao_id: 20, pontos: 4, evidencia: "Executou sozinho" }),
-      { username: "admin", password: "secret" },
     ));
     expect(mocks.mutateTechnician).toHaveBeenCalled();
     expect(mocks.mutateMatrix).toHaveBeenCalled();

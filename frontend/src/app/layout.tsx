@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
-import { Suspense } from "react";
 
-import { Header } from "@/components/Header";
+import { AuthGate } from "@/components/AuthGate";
 import { SWRProvider } from "@/components/SWRProvider";
 import { AdminProvider } from "@/lib/admin-context";
 import { CumulativoProvider } from "@/lib/cumulativo-context";
 import { GranularidadeProvider } from "@/lib/granularidade-context";
 import { MetricProvider } from "@/lib/metric-context";
 import { ScoreModeProvider } from "@/lib/score-mode-context";
-import { SnapshotProvider } from "@/lib/snapshot-context";
-import { UnitProvider } from "@/lib/unit-context";
+import { SessionProvider } from "@/lib/session-context";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -33,25 +31,20 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-screen flex flex-col">
         <SWRProvider>
           <AdminProvider>
-            <GranularidadeProvider>
-              <CumulativoProvider>
-                <MetricProvider>
-                  <ScoreModeProvider>
-                    <UnitProvider>
-                      <SnapshotProvider>
-                        <Suspense fallback={null}>
-                          <Header />
-                        </Suspense>
-                        {children}
-                      </SnapshotProvider>
-                    </UnitProvider>
-                  </ScoreModeProvider>
-                </MetricProvider>
-              </CumulativoProvider>
-            </GranularidadeProvider>
+            <SessionProvider>
+              <GranularidadeProvider>
+                <CumulativoProvider>
+                  <MetricProvider>
+                    <ScoreModeProvider>
+                      <AuthGate>{children}</AuthGate>
+                    </ScoreModeProvider>
+                  </MetricProvider>
+                </CumulativoProvider>
+              </GranularidadeProvider>
+            </SessionProvider>
           </AdminProvider>
         </SWRProvider>
       </body>

@@ -38,6 +38,8 @@ vi.mock("@/lib/api", () => ({
   adminApi: {
     collect: mocks.collect,
     listCollectionRuns: vi.fn(),
+    getAutoCollect: vi.fn(),
+    setAutoCollect: vi.fn(),
   },
 }));
 
@@ -162,8 +164,14 @@ describe("CollectionPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Próxima" }));
 
     await waitFor(() => {
-      const latestKey = mocks.useSWR.mock.calls.at(-1)?.[0];
-      expect(latestKey).toEqual(["collection-runs", "admin", 2, 10, "requested_at", "asc", "error"]);
+      // CollectionPanel nao e mais o unico consumidor de useSWR na arvore
+      // (AutoCollectControl tambem chama, com a chave "auto-collect") -
+      // procura a chamada com a chave que interessa em vez de assumir que
+      // e a ultima.
+      const collectionRunsKey = mocks.useSWR.mock.calls
+        .map((call) => call[0])
+        .findLast((key) => Array.isArray(key) && key[0] === "collection-runs");
+      expect(collectionRunsKey).toEqual(["collection-runs", "admin", 2, 10, "requested_at", "asc", "error"]);
     });
   });
 });

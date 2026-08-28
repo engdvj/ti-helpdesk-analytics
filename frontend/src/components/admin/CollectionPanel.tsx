@@ -199,6 +199,8 @@ export function CollectionPanel() {
         {actionError && <p className="admin-panel-result is-error">{actionError}</p>}
       </section>
 
+      <AutoCollectControl />
+
       <section className="sumula-cartao admin-panel admin-collection-history">
         <div className="admin-panel-header admin-collection-history-header">
           <div>
@@ -269,6 +271,70 @@ export function CollectionPanel() {
         )}
       </section>
     </div>
+  );
+}
+
+function AutoCollectControl() {
+  const { credentials } = useAdmin();
+  const { data, mutate } = useSWR("auto-collect", () => adminApi.getAutoCollect());
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const current = draft ?? (data ? String(data.minutes) : "");
+
+  async function save() {
+    if (!credentials) return;
+    const minutes = Number(current);
+    if (!Number.isFinite(minutes) || minutes < 0) {
+      setError("Informe um número de minutos válido (0 desliga).");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await adminApi.setAutoCollect(minutes, credentials);
+      await mutate(saved, { revalidate: false });
+      setDraft(null);
+    } catch (saveError) {
+      setError((saveError as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="sumula-cartao admin-panel admin-auto-collect">
+      <div className="admin-panel-header">
+        <div>
+          <h2>Coleta automática</h2>
+          <p>
+            {data == null
+              ? "Carregando..."
+              : data.minutes > 0
+                ? `Ligada — roda sozinha a cada ${data.minutes} min.`
+                : "Desligada — só roda manualmente ou pelo botão acima."}
+          </p>
+        </div>
+      </div>
+      <div className="admin-auto-collect-controls">
+        <label>
+          Intervalo (minutos, 0 desliga)
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            step={5}
+            value={current}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </label>
+        <Botao variant="primario" onClick={save} disabled={saving || draft === null}>
+          {saving ? "Salvando..." : "Salvar"}
+        </Botao>
+      </div>
+      {error && <p className="admin-panel-result is-error">{error}</p>}
+    </section>
   );
 }
 

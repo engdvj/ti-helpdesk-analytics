@@ -20,6 +20,7 @@ from api.app.db import get_db
 from api.app.models.technician import Technician
 from api.app.models.unit import Unit
 from api.app.routers.analytics._shared import read_parquet, records, safe_val
+from api.app.routers.auth import require_session
 from ti_analytics.analytics.complexity import (
     compute_category_difficulty,
     load_category_difficulty_overrides,
@@ -262,7 +263,7 @@ def _build_snapshot_details(
     }
 
 
-@router.get("/periods")
+@router.get("/periods", dependencies=[Depends(require_session)])
 def get_periods(
     granularidade: str = Query("diaria", pattern=_GRANULARIDADE_PATTERN),
     entities_id: int | None = Query(None, description="filtra por unidade - omitido = todas combinadas (geral)"),
@@ -273,7 +274,7 @@ def get_periods(
     return available_snapshot_periods(wide, granularidade, data_fim=brasilia_today())
 
 
-@router.get("/snapshots")
+@router.get("/snapshots", dependencies=[Depends(require_session)])
 def get_snapshots(
     granularidade: str = Query("diaria", pattern=_GRANULARIDADE_PATTERN),
     cumulativo: bool = Query(True, description="True = acumula desde o inicio; False = so o proprio balde de tempo"),
@@ -304,7 +305,7 @@ def get_snapshots(
     return records(timeline)
 
 
-@router.get("/technicians/{users_id}")
+@router.get("/technicians/{users_id}", dependencies=[Depends(require_session)])
 def get_technician_profile(
     users_id: int,
     entities_id: int | None = Query(None, description="filtra por unidade - omitido = todas combinadas"),

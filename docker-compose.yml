@@ -39,6 +39,10 @@ services:
       AUTO_COLLECT_MINUTES: ${AUTO_COLLECT_MINUTES:-0}
     volumes:
       - ./pipeline/data:/app/pipeline/data
+      # sem isso, qualquer config editada pelo painel /admin (pesos, metas,
+      # visibilidade de papel, intervalo da coleta automatica) fica so na
+      # camada gravavel do container e some no proximo `up -d --build`.
+      - ./pipeline/config:/app/pipeline/config
     ports:
       - "8000:8000"
     depends_on:

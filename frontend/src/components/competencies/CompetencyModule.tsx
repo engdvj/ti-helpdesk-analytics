@@ -8,10 +8,12 @@ import { Bar } from "@/components/ui/Bar";
 import { Botao } from "@/components/ui/Botao";
 import { Tabs } from "@/components/ui/Tabs";
 import { useAdmin } from "@/lib/admin-context";
+import { useSession } from "@/lib/session-context";
 import {
   adminApi,
   competencies,
   type CompetencyActivity,
+  type CompetencyAssessment,
   type CompetencyActivityInput,
   type CompetencyActivityType,
   type CompetencyActivityTypeDefinition,
@@ -353,14 +355,22 @@ function SituationProgressRow({
   usersId: number;
   onSaved: () => Promise<void>;
 }) {
-  const { credentials } = useAdmin();
+  const { isAdmin } = useAdmin();
+  const { subjectType, usersId: sessionUsersId } = useSession();
+  const isTecnico = subjectType === "tecnico";
+  // Admin avalia qualquer um; tecnico avalia colegas, nunca a si mesmo.
+  const canEvaluate = isAdmin || (isTecnico && sessionUsersId !== usersId);
+  const myPrevious = isAdmin
+    ? situation.avaliacoes.find((a) => a.avaliador_users_id == null)
+    : situation.avaliacoes.find((a) => a.avaliador_users_id === sessionUsersId);
   const [editing, setEditing] = useState(false);
   const [score, setScore] = useState(situation.pontos);
   const [response, setResponse] = useState<string | string[] | boolean | null>(
-    situation.ultima_avaliacao?.resposta ?? (situation.tipo_campo === "multipla_selecao" ? [] : null),
+    myPrevious?.resposta ?? (situation.tipo_campo === "multipla_selecao" ? [] : null),
   );
-  const [evidence, setEvidence] = useState(situation.ultima_avaliacao?.evidencia ?? "");
+  const [evidence, setEvidence] = useState(myPrevious?.evidencia ?? "");
   const [note, setNote] = useState("");
+  const [anonimo, setAnonimo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const percentage = situation.pontos_maximos ? situation.pontos / situation.pontos_maximos * 100 : 0;
@@ -378,7 +388,7 @@ function SituationProgressRow({
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!credentials) return;
+    if (!canEvaluate) return;
     setSaving(true);
     setError(null);
     try {
@@ -389,10 +399,12 @@ function SituationProgressRow({
         resposta: situation.tipo_campo === "escala" ? null : response,
         evidencia: evidence.trim() || null,
         observacao: note.trim() || null,
-      }, credentials);
+        anonimo: isTecnico ? anonimo : false,
+      });
       await onSaved();
       setEditing(false);
       setNote("");
+      setAnonimo(false);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -419,27 +431,30 @@ function SituationProgressRow({
         <p>{contentFieldDisplay(situation.procedimento_esperado, situation.procedimento_opcoes, situation.procedimento_valor)}</p>
       </details>
 
-      {situation.ultima_avaliacao && (
-        <div className="competency-latest-evidence">
-          <span>Última avaliação: {formatAssessmentDate(situation.ultima_avaliacao.avaliado_em)} por {situation.ultima_avaliacao.avaliado_por}</span>
-          {responseLabel(situation.ultima_avaliacao.resposta) && <p><strong>Resposta:</strong> {responseLabel(situation.ultima_avaliacao.resposta)}</p>}
-          {situation.ultima_avaliacao.evidencia && <p><strong>Evidência:</strong> {situation.ultima_avaliacao.evidencia}</p>}
-          {situation.ultima_avaliacao.observacao && <p><strong>Observação:</strong> {situation.ultima_avaliacao.observacao}</p>}
-        </div>
+      {situation.n_avaliacoes > 0 && (
+        <details className="competency-latest-evidence">
+          <summary>
+            Média de {situation.n_avaliacoes} avaliaç{situation.n_avaliacoes === 1 ? "ão" : "ões"}
+          </summary>
+          {situation.avaliacoes.map((assessment) => (
+            <AssessmentDetail key={assessment.id} assessment={assessment} responseLabel={responseLabel} />
+          ))}
+        </details>
       )}
 
-      {credentials && !editing && (
+      {canEvaluate && !editing && (
         <Botao variant="secundario" onClick={() => {
-          setScore(situation.pontos);
-          setResponse(situation.ultima_avaliacao?.resposta ?? (situation.tipo_campo === "multipla_selecao" ? [] : null));
-          setEvidence(situation.ultima_avaliacao?.evidencia ?? "");
+          setScore(myPrevious?.pontos ?? situation.pontos);
+          setResponse(myPrevious?.resposta ?? (situation.tipo_campo === "multipla_selecao" ? [] : null));
+          setEvidence(myPrevious?.evidencia ?? "");
+          setAnonimo(false);
           setEditing(true);
         }}>
-          {situation.avaliada ? "Reavaliar" : "Avaliar"}
+          {myPrevious ? "Reavaliar" : "Avaliar"}
         </Botao>
       )}
 
-      {credentials && editing && (
+      {canEvaluate && editing && (
         <form className="competency-assessment-form" onSubmit={save}>
           {situation.tipo_campo === "escala" && (
             <label>
@@ -523,6 +538,12 @@ function SituationProgressRow({
             <span>Observação para evolução</span>
             <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="O que já domina e qual é o próximo passo?" />
           </label>
+          {isTecnico && (
+            <label className="competency-anonymous-toggle">
+              <input type="checkbox" checked={anonimo} onChange={(event) => setAnonimo(event.target.checked)} />
+              <span>Avaliar anonimamente (sua identidade não aparece nem para o admin)</span>
+            </label>
+          )}
           {error && <p className="competency-error">{error}</p>}
           <div className="competency-form-actions">
             <Botao type="submit" variant="primario" disabled={saving || !responseIsValid}>{saving ? "Salvando..." : "Registrar avaliação"}</Botao>
@@ -534,6 +555,22 @@ function SituationProgressRow({
   );
 }
 
+function AssessmentDetail({
+  assessment,
+  responseLabel,
+}: {
+  assessment: CompetencyAssessment;
+  responseLabel: (value: string | string[] | boolean | null) => string | null;
+}) {
+  return (
+    <div className="competency-assessment-detail">
+      <span>{points(assessment.pontos)} pts · {formatAssessmentDate(assessment.avaliado_em)} por {assessment.avaliado_por}</span>
+      {responseLabel(assessment.resposta) && <p><strong>Resposta:</strong> {responseLabel(assessment.resposta)}</p>}
+      {assessment.evidencia && <p><strong>Evidência:</strong> {assessment.evidencia}</p>}
+      {assessment.observacao && <p><strong>Observação:</strong> {assessment.observacao}</p>}
+    </div>
+  );
+}
 
 type ActivitySortKey = "ordem" | "nome" | "tipo" | "situacoes" | "pontos";
 type SituationSortKey = "ordem" | "nome" | "tipo" | "pontos";

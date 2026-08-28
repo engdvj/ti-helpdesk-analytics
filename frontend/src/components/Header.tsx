@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { AdminLink } from "@/components/AdminLink";
 import { GranularidadeSwitcher } from "@/components/GranularidadeSwitcher";
 import { MetricSwitcher } from "@/components/MetricSwitcher";
 import { PeriodRangePicker } from "@/components/PeriodRangePicker";
 import { ScoreModeSwitcher } from "@/components/ScoreModeSwitcher";
 import { SnapshotPlayback } from "@/components/SnapshotPlayback";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { UnitSwitcher } from "@/components/UnitSwitcher";
+import { UserMenu } from "@/components/UserMenu";
 
 export function Header() {
   const pathname = usePathname();
@@ -32,8 +31,7 @@ export function Header() {
 
         <div className="app-header-spacer" />
         <div className="app-header-actions">
-          <AdminLink />
-          <ThemeToggle />
+          <UserMenu />
         </div>
       </div>
 

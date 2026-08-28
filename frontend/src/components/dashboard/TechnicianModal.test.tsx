@@ -85,7 +85,8 @@ const competencyDetail = {
           opcoes: [],
           pontos: 4,
           avaliada: true,
-          ultima_avaliacao: {
+          n_avaliacoes: 1,
+          avaliacoes: [{
             id: 101,
             users_id: 7,
             situacao_id: 11,
@@ -95,7 +96,9 @@ const competencyDetail = {
             observacao: "Boa validação final.",
             avaliado_por: "admin",
             avaliado_em: "2026-07-18T15:00:00Z",
-          },
+            anonimo: false,
+            avaliador_users_id: null,
+          }],
         },
         {
           id: 12,
@@ -110,7 +113,8 @@ const competencyDetail = {
           opcoes: [],
           pontos: 1,
           avaliada: true,
-          ultima_avaliacao: {
+          n_avaliacoes: 1,
+          avaliacoes: [{
             id: 102,
             users_id: 7,
             situacao_id: 12,
@@ -120,7 +124,9 @@ const competencyDetail = {
             observacao: null,
             avaliado_por: "admin",
             avaliado_em: "2026-07-18T16:00:00Z",
-          },
+            anonimo: false,
+            avaliador_users_id: null,
+          }],
         },
       ],
     },
@@ -149,7 +155,8 @@ const competencyDetail = {
         opcoes: [],
         pontos: 0,
         avaliada: false,
-        ultima_avaliacao: null,
+        n_avaliacoes: 0,
+        avaliacoes: [],
       }],
     },
   ],
@@ -382,7 +389,7 @@ describe("TechnicianModal resumo", () => {
     fireEvent.click(summary!);
     expect(screen.getAllByText("Critério esperado").length).toBeGreaterThan(0);
     expect(screen.getByText("Validar IP, conectividade, fila e driver.")).toBeInTheDocument();
-    expect(screen.getAllByText("Evidência registrada").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Média de \d+ avaliaç/).length).toBeGreaterThan(0);
     expect(screen.getByText("Executou diagnóstico e correção sem apoio.")).toBeInTheDocument();
     expect(screen.getByText("Boa validação final.")).toBeInTheDocument();
   });

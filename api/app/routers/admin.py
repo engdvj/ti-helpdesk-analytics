@@ -16,6 +16,7 @@ from api.app.models.collection_run import CollectionRun
 from api.app.models.technician import Technician
 from api.app.models.unit import Unit
 from api.app.routers.auth import hash_password
+from api.app.scheduler import load_auto_collect_minutes, save_auto_collect_minutes
 from api.app.schemas.collection_run import CollectionRunOut, CollectionRunPage, CollectionRunStatus
 from api.app.schemas.technician import TechnicianOut
 from api.app.services.collection_jobs import (
@@ -91,6 +92,25 @@ def trigger_collect(
         raise HTTPException(409, f"Ja existe uma coleta em andamento ({exc.run.id}).") from exc
     background_tasks.add_task(execute_collection_run, run.id)
     return run
+
+
+@router.get("/auto-collect")
+def get_auto_collect():
+    """Leitura publica (mesma politica de weights/role-visibility) - intervalo
+    atual da coleta automatica em minutos (0 = desligada)."""
+    return {"minutes": load_auto_collect_minutes()}
+
+
+class AutoCollectUpdate(BaseModel):
+    minutes: float = Field(ge=0, le=1440)
+
+
+@router.put("/auto-collect", dependencies=[Depends(require_admin)])
+def update_auto_collect(payload: AutoCollectUpdate):
+    """So a escrita e protegida - a thread do scheduler (api/app/scheduler.py)
+    le esse valor de novo a cada checagem, sem precisar reiniciar o container."""
+    save_auto_collect_minutes(payload.minutes)
+    return {"minutes": payload.minutes}
 
 
 CollectionRunSort = Literal[

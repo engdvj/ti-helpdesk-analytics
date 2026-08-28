@@ -1,7 +1,17 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+// Setado pelo SessionProvider (login/restauracao/logout) - `req()` anexa em
+// toda chamada em vez de cada funcao de API precisar receber o token
+// explicitamente (dezenas de call sites existentes, ver lib/session-context.tsx).
+let sessionToken: string | null = null;
+export function setSessionToken(token: string | null): void {
+  sessionToken = token;
+}
+
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, options);
+  const headers = new Headers(options?.headers);
+  if (sessionToken) headers.set("X-Session-Token", sessionToken);
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {
@@ -35,6 +45,7 @@ export interface Technician {
   foto: string | null;
   foto_fonte: "glpi" | "upload" | null;
   nome_exibicao: string | null;
+  tem_senha: boolean;
 }
 
 export type CompetencyActivityType = string;
@@ -101,12 +112,15 @@ export interface CompetencyAssessment {
   observacao: string | null;
   avaliado_por: string;
   avaliado_em: string;
+  anonimo: boolean;
+  avaliador_users_id: number | null;
 }
 
 export interface CompetencySituationProgress extends Omit<CompetencySituation, "atividade_id" | "ordem" | "ativa"> {
   pontos: number;
   avaliada: boolean;
-  ultima_avaliacao: CompetencyAssessment | null;
+  n_avaliacoes: number;
+  avaliacoes: CompetencyAssessment[];
 }
 
 export interface CompetencyActivityProgress {
@@ -177,6 +191,7 @@ export interface CompetencyAssessmentInput {
   resposta?: string | string[] | boolean | null;
   evidencia?: string | null;
   observacao?: string | null;
+  anonimo?: boolean;
 }
 
 export type ScoreMode = "equipe" | "metas";
@@ -379,10 +394,41 @@ export interface ScoreTargets {
   qualidade: number;
 }
 
+export interface AutoCollectSettings {
+  minutes: number;
+}
+
 export interface AdminCredentials {
   username: string;
   password: string;
 }
+
+export type SubjectType = "tecnico" | "admin";
+
+export interface SessionInfo {
+  token: string;
+  subject_type: SubjectType;
+  users_id: number | null;
+  nome_completo: string | null;
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    req<SessionInfo>("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }),
+  logout: (token: string) =>
+    req<{ ok: boolean }>("/auth/logout", { method: "POST", headers: { "X-Session-Token": token } }),
+  me: (token: string) => req<SessionInfo>("/auth/me", { headers: { "X-Session-Token": token } }),
+  changePassword: (senhaAtual: string, senhaNova: string) =>
+    req<{ ok: boolean }>("/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
+    }),
+};
 
 export type CollectionRunStatus = "queued" | "running" | "success" | "error";
 export type CollectionRunSort =
@@ -507,10 +553,10 @@ export const adminApi = {
       method: "DELETE",
       headers: adminHeaders(creds),
     }),
-  assessCompetency: (payload: CompetencyAssessmentInput, creds: AdminCredentials) =>
+  assessCompetency: (payload: CompetencyAssessmentInput) =>
     req<CompetencyAssessment>("/competencies/assessments", {
       method: "POST",
-      headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
   collect: (creds: AdminCredentials) =>
@@ -530,6 +576,13 @@ export const adminApi = {
   },
   getCollectionRun: (runId: string, creds: AdminCredentials) =>
     req<CollectionRun>(`/admin/collection-runs/${encodeURIComponent(runId)}`, { headers: adminHeaders(creds) }),
+  getAutoCollect: () => req<AutoCollectSettings>("/admin/auto-collect"),
+  setAutoCollect: (minutes: number, creds: AdminCredentials) =>
+    req<AutoCollectSettings>("/admin/auto-collect", {
+      method: "PUT",
+      headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
+      body: JSON.stringify({ minutes }),
+    }),
   getWeights: () => req<ScoreWeights>("/admin/weights"),
   setWeights: (weights: ScoreWeights, creds: AdminCredentials) =>
     req<ScoreWeights>("/admin/weights", {
@@ -560,6 +613,12 @@ export const adminApi = {
       method: "PUT",
       headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
       body: JSON.stringify(updates),
+    }),
+  setTechnicianPassword: (usersId: number, senha: string, creds: AdminCredentials) =>
+    req<{ ok: boolean }>(`/admin/technicians/${usersId}/password`, {
+      method: "POST",
+      headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
+      body: JSON.stringify({ senha }),
     }),
   setCategoryDifficulty: (itilcategoriesId: number, peso: number | null, creds: AdminCredentials) =>
     req<{ itilcategories_id: number; override: number | null }>(`/admin/category-difficulty/${itilcategoriesId}`, {

@@ -183,6 +183,9 @@ class CompetencyAssessmentCreate(BaseModel):
     resposta: str | list[str] | bool | None = None
     evidencia: str | None = Field(default=None, max_length=8000)
     observacao: str | None = Field(default=None, max_length=8000)
+    # So tecnico logado pode marcar - admin nao tem essa opcao (nao faz
+    # sentido "admin anonimo"), ver create_assessment em routers/competencies.py.
+    anonimo: bool = False
 
 
 class CompetencyAssessmentOut(BaseModel):
@@ -197,6 +200,8 @@ class CompetencyAssessmentOut(BaseModel):
     observacao: str | None
     avaliado_por: str
     avaliado_em: datetime
+    anonimo: bool
+    avaliador_users_id: int | None
 
 
 class CompetencySituationProgress(BaseModel):
@@ -212,7 +217,8 @@ class CompetencySituationProgress(BaseModel):
     opcoes: list[CompetencyOption]
     pontos: float
     avaliada: bool
-    ultima_avaliacao: CompetencyAssessmentOut | None
+    n_avaliacoes: int
+    avaliacoes: list[CompetencyAssessmentOut]
 
 
 class CompetencyActivityProgress(BaseModel):

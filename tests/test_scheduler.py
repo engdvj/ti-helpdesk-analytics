@@ -1,26 +1,31 @@
-"""Coleta automatica em intervalo fixo - cobre o gating por env e o
-pulo quando ja existe uma coleta ativa (sem rodar o pipeline real)."""
+"""Coleta automatica em intervalo configuravel - cobre o parsing do valor
+inicial (env), o round-trip de leitura/escrita do intervalo (arquivo de
+config, editavel pelo painel /admin sem reiniciar) e o pulo quando ja existe
+uma coleta ativa (sem rodar o pipeline real)."""
 from __future__ import annotations
+
+import ti_analytics.config as ti_config
 
 from api.app import db as api_db
 from api.app import scheduler
-from api.app.scheduler import REQUESTED_BY_AUTO, _collect_once, _env_minutes, start_auto_collect
+from api.app.scheduler import (
+    REQUESTED_BY_AUTO,
+    _collect_once,
+    _env_minutes,
+    load_auto_collect_minutes,
+    save_auto_collect_minutes,
+    start_auto_collect,
+)
 from api.app.services import collection_jobs
 
 
-def test_desligado_sem_env(monkeypatch):
-    monkeypatch.delenv("AUTO_COLLECT_MINUTES", raising=False)
-    assert start_auto_collect() is None
-
-
-def test_desligado_com_zero(monkeypatch):
-    monkeypatch.setenv("AUTO_COLLECT_MINUTES", "0")
-    assert start_auto_collect() is None
-
-
-def test_valor_invalido_nao_quebra(monkeypatch):
-    monkeypatch.setenv("AUTO_COLLECT_MINUTES", "abc")
-    assert start_auto_collect() is None
+def _isolate_config_dir(monkeypatch, tmp_path):
+    """`load_config` (ti_analytics.config) e `save_auto_collect_minutes`
+    (scheduler.py) importam CONFIG_DIR de origens diferentes - ambos
+    precisam apontar pro mesmo tmp_path pra um teste isolado ver o proprio
+    round-trip sem tocar em pipeline/config/ de verdade."""
+    monkeypatch.setattr(ti_config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(scheduler, "CONFIG_DIR", tmp_path)
 
 
 def test_env_minutes_parsing(monkeypatch):
@@ -34,8 +39,35 @@ def test_env_minutes_parsing(monkeypatch):
     assert _env_minutes("X", 10.0) == 5.0
 
 
-def test_ligado_retorna_thread_daemon(monkeypatch):
-    # intervalo grande: a thread so dorme durante o teste (daemon, morre com o processo).
+def test_load_auto_collect_minutes_cai_pro_env_sem_arquivo(tmp_path, monkeypatch):
+    _isolate_config_dir(monkeypatch, tmp_path)
+    monkeypatch.setenv("AUTO_COLLECT_MINUTES", "45")
+    assert load_auto_collect_minutes() == 45.0
+
+
+def test_load_auto_collect_minutes_sem_env_e_sem_arquivo_fica_desligado(tmp_path, monkeypatch):
+    _isolate_config_dir(monkeypatch, tmp_path)
+    monkeypatch.delenv("AUTO_COLLECT_MINUTES", raising=False)
+    assert load_auto_collect_minutes() == 0.0
+
+
+def test_save_and_load_auto_collect_minutes_round_trip(tmp_path, monkeypatch):
+    _isolate_config_dir(monkeypatch, tmp_path)
+    save_auto_collect_minutes(90.0)
+    assert load_auto_collect_minutes() == 90.0
+    # sobrescreve o valor anterior, nao acumula
+    save_auto_collect_minutes(15.0)
+    assert load_auto_collect_minutes() == 15.0
+
+
+def test_save_auto_collect_minutes_nunca_negativo(tmp_path, monkeypatch):
+    _isolate_config_dir(monkeypatch, tmp_path)
+    save_auto_collect_minutes(-5.0)
+    assert load_auto_collect_minutes() == 0.0
+
+
+def test_ligado_sempre_retorna_thread_daemon(tmp_path, monkeypatch):
+    _isolate_config_dir(monkeypatch, tmp_path)
     monkeypatch.setenv("AUTO_COLLECT_MINUTES", "60")
     t = start_auto_collect()
     assert t is not None
