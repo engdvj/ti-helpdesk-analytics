@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-ti_analytics}:${POSTGRES_PASSWORD:-ti_analytics}@db:5432/${POSTGRES_DB:-ti_analytics}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3300}
       ADMIN_USERNAME: ${ADMIN_USERNAME:?defina ADMIN_USERNAME no .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD no .env}
       GLPI_URL: ${GLPI_URL:?defina GLPI_URL no .env}
@@ -44,7 +44,7 @@ services:
       # camada gravavel do container e some no proximo `up -d --build`.
       - ./pipeline/config:/app/pipeline/config
     ports:
-      - "8000:8000"
+      - "8800:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -54,10 +54,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8800}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3300:3000"
     depends_on:
       - api
 

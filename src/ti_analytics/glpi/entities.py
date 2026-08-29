@@ -47,3 +47,13 @@ def discover_group_id(cfg: GlpiConfig, session_token: str, group_name: str) -> i
         if (row.get("name") or "").strip().casefold() == group_name.strip().casefold():
             return int(row["id"])
     raise ValueError(f"Grupo GLPI '{group_name}' nao encontrado")
+
+
+def discover_user_category_id(cfg: GlpiConfig, session_token: str, category_name: str) -> int:
+    """Acha o id de UserCategory pelo nome (ex.: "Setor") - mesmo motivo de
+    discover_group_id: nunca hardcodear (hoje 2), a categoria pode mudar."""
+    raw = get_paginated(cfg, "/UserCategory", session_token)
+    for row in raw:
+        if (row.get("name") or "").strip().casefold() == category_name.strip().casefold():
+            return int(row["id"])
+    raise ValueError(f"UserCategory GLPI '{category_name}' nao encontrada")

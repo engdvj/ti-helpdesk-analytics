@@ -58,6 +58,27 @@ def ensure_additive_columns() -> None:
         "ALTER TABLE technicians ADD COLUMN password_hash VARCHAR",
         "ALTER TABLE competency_assessments ADD COLUMN avaliador_users_id INTEGER",
         "ALTER TABLE competency_assessments ADD COLUMN anonimo BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE collection_runs ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT 'chamados'",
+        "ALTER TABLE preventiva_checklist_items ADD COLUMN secao VARCHAR(120)",
+        # DEFAULT true (não `1`): esta linha PRECISA rodar no Postgres (a tabela
+        # `computers` já existe em prod, criada antes desta coluna) e o PG não
+        # faz cast implícito de int->boolean num ADD COLUMN. `true` funciona nos
+        # dois dialetos. As linhas `DEFAULT 1/0` acima são no-ops que só o
+        # SQLite aceita - as tabelas delas sempre nasceram já com a coluna.
+        "ALTER TABLE computers ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT true",
+        "ALTER TABLE computers ADD COLUMN id_glpi_computer INTEGER",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_computers_id_glpi_computer ON computers (id_glpi_computer)",
+        # DROP NOT NULL e idempotente no Postgres (nao erra rodando de novo);
+        # no SQLite e sintaxe invalida e cai no except abaixo sem problema -
+        # dev.db local ja nasce nullable via create_all() direto do model.
+        "ALTER TABLE computers ALTER COLUMN setor_atual_id DROP NOT NULL",
+        # patrimonio tambem virou opcional - existe PC sem etiqueta de
+        # patrimonio de verdade no hospital (nao e so questao de GLPI).
+        "ALTER TABLE computers ALTER COLUMN patrimonio DROP NOT NULL",
+        "ALTER TABLE maintenance_cycles ADD COLUMN intervalo_alta_meses INTEGER NOT NULL DEFAULT 3",
+        "ALTER TABLE maintenance_cycles ADD COLUMN intervalo_normal_meses INTEGER NOT NULL DEFAULT 6",
+        "ALTER TABLE maintenance_cycles ADD COLUMN intervalo_baixa_meses INTEGER NOT NULL DEFAULT 12",
+        "ALTER TABLE maintenance_cycles ADD COLUMN data_inicio DATE",
     ]
     for stmt in additions:
         try:

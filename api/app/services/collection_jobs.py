@@ -40,12 +40,17 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_collection_run(db: Session, requested_by: str) -> CollectionRun:
-    """Cria uma execucao em fila, rejeitando concorrencia no mesmo processo."""
+def create_collection_run(db: Session, requested_by: str, tipo: str = "chamados") -> CollectionRun:
+    """Cria uma execucao em fila, rejeitando concorrencia no mesmo processo.
+
+    `tipo` distingue a coleta de chamados (default, unico tipo ate a feature
+    de Manutencao Preventiva) da sincronizacao de setores
+    (services/setor_sync.py, tipo="setores") - mesma tabela/historico
+    (CollectionRun), concorrencia e retencao contadas por tipo, nunca juntas."""
     with _start_lock:
         active = db.scalar(
             select(CollectionRun)
-            .where(CollectionRun.status.in_(ACTIVE_COLLECTION_STATUSES))
+            .where(CollectionRun.tipo == tipo, CollectionRun.status.in_(ACTIVE_COLLECTION_STATUSES))
             .order_by(CollectionRun.requested_at.desc())
             .limit(1)
         )
@@ -54,6 +59,7 @@ def create_collection_run(db: Session, requested_by: str) -> CollectionRun:
 
         run = CollectionRun(
             id=str(uuid4()),
+            tipo=tipo,
             status="queued",
             requested_by=requested_by,
             requested_at=utc_now(),
@@ -157,7 +163,10 @@ def prune_old_collections(db: Session, keep: int = COLLECTION_RETENTION) -> None
     old_runs = list(
         db.scalars(
             select(CollectionRun)
-            .where(CollectionRun.status.notin_(ACTIVE_COLLECTION_STATUSES))
+            .where(
+                CollectionRun.tipo == "chamados",  # setor sync (tipo="setores") tem retencao propria
+                CollectionRun.status.notin_(ACTIVE_COLLECTION_STATUSES),
+            )
             .order_by(CollectionRun.requested_at.desc())
             .offset(keep)
         ).all()

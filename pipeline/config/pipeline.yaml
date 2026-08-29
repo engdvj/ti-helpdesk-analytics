@@ -1,6 +1,19 @@
 grupo_ti:
   nome: "Tecnologia da Informação"
 
+setores:
+  # Grupo GLPI + categoria de User que definem um "setor" (descobertos por
+  # nome, nunca por id - o id pode mudar). `categorias_extra`: contas de
+  # departamento que contam como setor mas ficam FORA do grupo "Setores"
+  # (ex. supervisores de manutenção TI/ME/MP - categoria "Supervisor",
+  # entities_id na raiz). Elas recebem `unidade_extra` fixa porque são
+  # transversais (o ti-supervisor cobre HGVC e UPA).
+  grupo: "Setores"
+  categoria: "Setor"
+  categorias_extra:
+    - "Supervisor"
+  unidade_extra: "geral"
+
 categorias_ti:
   raiz: "Tecnologia da Informação"
 

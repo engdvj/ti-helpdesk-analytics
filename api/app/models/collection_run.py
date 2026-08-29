@@ -14,6 +14,7 @@ class CollectionRun(Base):
     __tablename__ = "collection_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(20), index=True, default="chamados", server_default="chamados")
     status: Mapped[str] = mapped_column(String(20), index=True)
     requested_by: Mapped[str] = mapped_column(String(120))
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

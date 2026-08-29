@@ -8,9 +8,19 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.app.models.checklist_item_def import ChecklistItemDef
 from api.app.models.competency import CompetencyActivityType
 from api.app.models.technician import Technician
 from api.app.models.unit import Unit
+from api.app.services.ciclos import (
+    DEFAULT_EXECUCAO_CHECKLIST_ITEMS,
+    DEFAULT_EXECUCAO_SECOES,
+    DEFAULT_PLANEJAMENTO_CHECKLIST_ITEMS,
+    DEFAULT_RECONFIRMACAO_CHECKLIST_ITEMS,
+    TIPO_EXECUCAO,
+    TIPO_PLANEJAMENTO,
+    TIPO_RECONFIRMACAO,
+)
 from ti_analytics.paths import GOLD_DIR
 
 
@@ -44,6 +54,25 @@ def seed_competency_activity_types(db: Session) -> None:
                 ordem=ordem,
                 ativa=True,
             ))
+    db.commit()
+
+
+def seed_preventiva_checklist_items(db: Session) -> None:
+    """Popula o catálogo editável (docs/requisitos.md Épico C) com o
+    vocabulário original do PDF, só na 1a vez (tabela vazia) - depois disso
+    o admin é quem manda: nunca reinserir um item que o admin apagou de
+    propósito."""
+    if db.scalar(select(ChecklistItemDef).limit(1)) is not None:
+        return
+    defaults = [
+        (TIPO_PLANEJAMENTO, DEFAULT_PLANEJAMENTO_CHECKLIST_ITEMS),
+        (TIPO_RECONFIRMACAO, DEFAULT_RECONFIRMACAO_CHECKLIST_ITEMS),
+        (TIPO_EXECUCAO, DEFAULT_EXECUCAO_CHECKLIST_ITEMS),
+    ]
+    for tipo, textos in defaults:
+        for ordem, texto in enumerate(textos):
+            secao = DEFAULT_EXECUCAO_SECOES.get(texto) if tipo == TIPO_EXECUCAO else None
+            db.add(ChecklistItemDef(tipo=tipo, texto=texto, secao=secao, ordem=ordem, ativo=True))
     db.commit()
 
 
