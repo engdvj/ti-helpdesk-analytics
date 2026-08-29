@@ -25,6 +25,16 @@ from api.app.services.collection_jobs import (
     create_collection_run,
     execute_collection_run,
 )
+from api.app.services.computer_sync import (
+    ComputerSyncAlreadyRunningError,
+    create_computer_sync_run,
+    execute_computer_sync,
+)
+from api.app.services.setor_sync import (
+    SectorSyncAlreadyRunningError,
+    create_sector_sync_run,
+    execute_sector_sync,
+)
 from ti_analytics.analytics.complexity import (
     build_category_difficulty_table,
     filter_categories_by_root,
@@ -94,6 +104,41 @@ def trigger_collect(
     return run
 
 
+@router.post("/sync-sectors", response_model=CollectionRunOut, status_code=202)
+def trigger_sector_sync(
+    background_tasks: BackgroundTasks,
+    requested_by: str = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Dispara a sincronizacao de setores do GLPI (docs/requisitos.md Épico
+    B1) - mesmo padrao de /admin/collect, historico compartilhado via
+    CollectionRun(tipo="setores")."""
+    try:
+        run = create_sector_sync_run(db, requested_by)
+    except SectorSyncAlreadyRunningError as exc:
+        raise HTTPException(409, f"Ja existe uma sincronizacao de setores em andamento ({exc.run.id}).") from exc
+    background_tasks.add_task(execute_sector_sync, run.id)
+    return run
+
+
+@router.post("/sync-computers", response_model=CollectionRunOut, status_code=202)
+def trigger_computer_sync(
+    background_tasks: BackgroundTasks,
+    requested_by: str = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Dispara a sincronizacao de computadores do GLPI (agent/glpiinventory) -
+    mesmo padrao de /admin/sync-sectors, historico compartilhado via
+    CollectionRun(tipo="computadores"). So leitura - nunca escreve no GLPI
+    (ver services/computer_sync.py)."""
+    try:
+        run = create_computer_sync_run(db, requested_by)
+    except ComputerSyncAlreadyRunningError as exc:
+        raise HTTPException(409, f"Ja existe uma sincronizacao de computadores em andamento ({exc.run.id}).") from exc
+    background_tasks.add_task(execute_computer_sync, run.id)
+    return run
+
+
 @router.get("/auto-collect")
 def get_auto_collect():
     """Leitura publica (mesma politica de weights/role-visibility) - intervalo
@@ -134,17 +179,15 @@ def list_collection_runs(
     sort_by: CollectionRunSort = "requested_at",
     sort_dir: Literal["asc", "desc"] = "desc",
     status_filter: CollectionRunStatus | None = Query(default=None, alias="status"),
+    tipo: Literal["chamados", "setores", "computadores"] = "chamados",
     db: Session = Depends(get_db),
 ):
-    filters = []
+    filters = [CollectionRun.tipo == tipo]
     if status_filter is not None:
         filters.append(CollectionRun.status == status_filter)
 
-    count_query = select(func.count()).select_from(CollectionRun)
-    rows_query = select(CollectionRun)
-    if filters:
-        count_query = count_query.where(*filters)
-        rows_query = rows_query.where(*filters)
+    count_query = select(func.count()).select_from(CollectionRun).where(*filters)
+    rows_query = select(CollectionRun).where(*filters)
 
     total = int(db.scalar(count_query) or 0)
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -161,7 +204,7 @@ def list_collection_runs(
     )
     active = db.scalar(
         select(CollectionRun)
-        .where(CollectionRun.status.in_(ACTIVE_COLLECTION_STATUSES))
+        .where(CollectionRun.tipo == tipo, CollectionRun.status.in_(ACTIVE_COLLECTION_STATUSES))
         .order_by(CollectionRun.requested_at.desc())
         .limit(1)
     )
