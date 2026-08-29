@@ -4761,6 +4761,544 @@ select.tecnico-snapshot-mode option {
   .competency-type-list .competency-catalog-row-actions { grid-column: 1; }
 }
 
+/* Manutenção Preventiva de Computadores + Inventário (docs/requisitos.md) -
+   reaproveita a linguagem visual de .admin-collection-table/.admin-auto-
+   collect-controls em vez de inventar um padrão novo. */
+.preventiva-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--linha);
+}
+
+.preventiva-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: var(--fonte-dados);
+}
+
+/* is-fixed: colunas com largura estável entre páginas (as tabelas paginadas
+   de setor/computador/ciclo). Sem isso o browser recalcula a largura de cada
+   coluna pelo conteúdo de cada página e elas "pulam" ao navegar. Tabelas com
+   muitas colunas de conteúdo variável (ex. itens do ciclo) NÃO usam. */
+.preventiva-table.is-fixed { table-layout: fixed; }
+
+.preventiva-table th,
+.preventiva-table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--linha);
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+}
+
+.preventiva-table th {
+  background: color-mix(in srgb, var(--superficie) 78%, var(--fundo));
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+}
+
+.preventiva-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.preventiva-table th button:hover { color: var(--acento); }
+.preventiva-table th[aria-sort]:not([aria-sort="none"]) { color: var(--tinta); }
+
+.preventiva-table tbody tr:hover { background: color-mix(in srgb, var(--acento-suave) 20%, transparent); }
+.preventiva-table tbody tr:last-child td { border-bottom: 0; }
+.preventiva-table tr.is-inactive { opacity: 0.55; }
+
+/* célula "Mover para": o <select> preenche o que sobra da coluna e encolhe
+   (min-width:0) em vez de estourar a largura fixa e gerar scroll horizontal. */
+.preventiva-move-cell {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: 0;
+}
+.preventiva-move-cell select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+.preventiva-move-cell button { flex: 0 0 auto; white-space: nowrap; }
+
+/* botão só de ícone (ver/editar checklist na tabela do ciclo) */
+.preventiva-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 1px solid var(--linha);
+  background: var(--superficie);
+  color: var(--apagado);
+  cursor: pointer;
+}
+.preventiva-icon-btn:hover { color: var(--acento); border-color: var(--acento); }
+.preventiva-icon-btn:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+.preventiva-icon-btn:disabled { opacity: 0.5; cursor: default; }
+.preventiva-icon-btn.is-danger:hover { color: var(--critico); border-color: var(--critico); }
+
+/* multi-seleção de setores em "Adicionar computadores ao ciclo" */
+.preventiva-sector-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--linha);
+}
+.preventiva-sector-picker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  font-size: var(--fonte-label);
+  cursor: pointer;
+  user-select: none;
+}
+.preventiva-sector-picker-item:has(input:checked) {
+  border-color: var(--acento);
+  background: color-mix(in srgb, var(--acento-suave) 30%, transparent);
+  color: var(--acento);
+}
+.preventiva-sector-picker-count {
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--apagado) 22%, transparent);
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+.preventiva-sector-picker-item:has(input:checked) .preventiva-sector-picker-count {
+  background: color-mix(in srgb, var(--acento) 25%, transparent);
+  color: var(--acento);
+}
+
+.preventiva-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* coluna centralizada (ex. Status na lista de ciclos) - zera o margin-left
+   do badge, que só faz sentido quando ele vem depois de um texto */
+.preventiva-table th.preventiva-cell-center,
+.preventiva-table td.preventiva-cell-center { text-align: center; }
+.preventiva-table td.preventiva-cell-center .preventiva-badge { margin-left: 0; }
+
+/* linha inteira clicável (lista de ciclos) - o <a> em cima do nome cobre a
+   navegação por teclado/middle-click; o onClick no <tr> cobre o resto. */
+.preventiva-table tr.is-clickable { cursor: pointer; }
+.preventiva-table tbody tr.is-clickable:hover {
+  background: color-mix(in srgb, var(--acento-suave) 28%, transparent);
+}
+.preventiva-row-link { color: var(--tinta); font-weight: 500; }
+.preventiva-table tr.is-clickable:hover .preventiva-row-link { color: var(--acento); }
+
+.preventiva-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.preventiva-badge.is-status-planejado,
+.preventiva-badge.is-cycle-planejamento { color: var(--apagado); border-color: var(--linha); }
+.preventiva-badge.is-status-confirmado { color: var(--acento); border-color: var(--acento); }
+.preventiva-badge.is-status-concluido,
+.preventiva-badge.is-cycle-encerrado { color: var(--positivo, #4ba67b); border-color: var(--positivo, #4ba67b); }
+.preventiva-badge.is-status-remarcado { color: var(--aviso); border-color: var(--aviso); }
+.preventiva-badge.is-status-pendente,
+.preventiva-badge.is-late { color: var(--critico); border-color: var(--critico); }
+.preventiva-badge.is-inactive { color: var(--critico); border-color: var(--critico); }
+.preventiva-badge.is-priority-alta { color: var(--critico); border-color: var(--critico); }
+.preventiva-badge.is-priority-normal { color: var(--apagado); border-color: var(--linha); }
+.preventiva-badge.is-priority-baixa { color: var(--acento); border-color: var(--acento); }
+
+/* score de saude do equipamento (services/hardware_score.py) */
+.preventiva-badge.is-nivel-bom { color: var(--positivo, #4ba67b); border-color: var(--positivo, #4ba67b); }
+.preventiva-badge.is-nivel-atencao { color: var(--aviso); border-color: var(--aviso); }
+.preventiva-badge.is-nivel-critico { color: var(--critico); border-color: var(--critico); }
+
+.preventiva-form,
+.preventiva-inline-form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* form vertical nunca "wrapa" - flex-wrap num container column faz o
+   browser tentar quebrar em colunas e abre buracos verticais quando há
+   um .preventiva-inline-form aninhado (datas lado a lado). */
+.preventiva-form { flex-direction: column; align-items: stretch; }
+.preventiva-inline-form { align-items: flex-end; flex-wrap: wrap; }
+
+.preventiva-form label,
+.preventiva-inline-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--apagado);
+  font-size: var(--fonte-label);
+}
+
+/* inline: cada campo cresce igual e divide o espaço livre - sem isso o
+   <select> de setor estica sozinho pro tamanho da maior option e os
+   inputs de texto ficam minúsculos ao lado (layout "torto"). */
+.preventiva-inline-form label {
+  flex: 1 1 11rem;
+  min-width: 0;
+  max-width: 17rem;
+}
+
+.preventiva-form input,
+.preventiva-form select,
+.preventiva-form textarea,
+.preventiva-inline-form input,
+.preventiva-inline-form select {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--linha);
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--font-mono);
+  font-size: var(--fonte-dados);
+}
+
+.preventiva-inline-form input,
+.preventiva-inline-form select {
+  width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+}
+
+.preventiva-inline-form > button { flex: 0 0 auto; }
+
+.preventiva-form textarea { font-family: var(--font-inter); resize: vertical; }
+
+/* Formulário de criação de ciclo - grid de 2 colunas com arestas alinhadas
+   (nome/responsável/fieldset ocupam a linha toda; as duas datas dividem). */
+.preventiva-cycle-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 0.75rem;
+  align-items: start;
+}
+.preventiva-cycle-form > label:first-child,
+.preventiva-cycle-form > label.is-full,
+.preventiva-cycle-form > fieldset,
+.preventiva-cycle-form > button,
+.preventiva-cycle-form > .admin-panel-result {
+  grid-column: 1 / -1;
+}
+.preventiva-cycle-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--apagado);
+  font-size: var(--fonte-label);
+}
+.preventiva-cycle-form input,
+.preventiva-cycle-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--linha);
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--font-mono);
+  font-size: var(--fonte-dados);
+}
+.preventiva-cycle-form input:focus,
+.preventiva-cycle-form select:focus {
+  border-color: var(--acento);
+  outline: 1px solid var(--acento);
+}
+.preventiva-cycle-form input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.preventiva-cycle-form input[type="number"]::-webkit-outer-spin-button,
+.preventiva-cycle-form input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.preventiva-cycle-form button[type="submit"] {
+  justify-self: start;
+  margin-top: 0.25rem;
+}
+
+.preventiva-cycle-form fieldset {
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--linha);
+}
+.preventiva-cycle-form legend {
+  padding: 0 0.45rem;
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.preventiva-cycle-form fieldset p {
+  margin: 0 0 0.75rem;
+  color: var(--apagado);
+  font-size: var(--fonte-label);
+  line-height: 1.45;
+}
+.preventiva-cycle-form-intervalos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .preventiva-cycle-form { grid-template-columns: 1fr; }
+  .preventiva-cycle-form-intervalos { grid-template-columns: 1fr; }
+}
+
+.preventiva-form input:focus,
+.preventiva-form select:focus,
+.preventiva-form textarea:focus,
+.preventiva-inline-form input:focus,
+.preventiva-inline-form select:focus {
+  border-color: var(--acento);
+  outline: 1px solid var(--acento);
+}
+
+.preventiva-link { color: var(--acento); font-size: var(--fonte-label); white-space: nowrap; }
+
+/* botão que parece link (ações secundárias: editar/remover hardware, excluir PC) */
+.preventiva-linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fonte-label);
+  color: var(--acento);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.preventiva-linkish:hover { opacity: 0.8; }
+.preventiva-linkish:disabled { opacity: 0.5; cursor: default; }
+.preventiva-linkish.is-danger { color: var(--critico); }
+
+/* filtro de checkbox dentro de .preventiva-inline-form (ex. "Mostrar
+   desativados") - inline em vez do column padrão do label, alinhado à base
+   dos outros campos. */
+.preventiva-inline-form label.preventiva-checkbox-label {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--tinta);
+  padding-bottom: 0.45rem;
+  cursor: pointer;
+}
+.preventiva-inline-form label.preventiva-checkbox-label input {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.preventiva-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.75rem;
+}
+
+.preventiva-summary-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--linha);
+}
+
+.preventiva-summary-grid span { color: var(--apagado); font-size: var(--fonte-label); }
+.preventiva-summary-grid strong { font-family: var(--font-display); font-size: 1.25rem; }
+
+/* Detalhe do computador (ComputerDetailModal) - painel de score + specs. */
+.preventiva-detail-box {
+  border: 1px solid var(--linha);
+  padding: 1rem;
+}
+.preventiva-detail-specs {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.4rem 0.9rem;
+  margin: 0;
+  font-size: var(--fonte-dados);
+}
+.preventiva-detail-specs dt { color: var(--apagado); }
+.preventiva-detail-specs dd { margin: 0; }
+/* linha da tabela de computadores clicável (abre o detalhe) */
+.preventiva-table tbody tr.is-clickable { cursor: pointer; }
+
+/* Checklist de execucao (C3) - agrupado por secao, controle OK/NA como pill
+   segmentado (em vez do radio nativo, que herdava a cor de acento do SO em
+   vez do tema do app). */
+.preventiva-exec-progress {
+  margin: -0.4rem 0 0.75rem;
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+
+.preventiva-exec-checklist { display: flex; flex-direction: column; gap: 2rem; }
+
+.preventiva-exec-secao h3 {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--acento);
+  color: var(--acento);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preventiva-exec-secao ul { list-style: none; margin: 0; padding: 0; }
+/* recuo dos itens sob o título da subseção - deixa claro que pertencem a ela */
+.preventiva-exec-secao:has(h3) ul { border-left: 2px solid var(--linha); padding-left: 0.9rem; }
+
+.preventiva-exec-item {
+  padding: 0.6rem 0.1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--linha) 55%, transparent);
+}
+
+.preventiva-exec-secao li.preventiva-exec-item:last-child { border-bottom: none; }
+
+.preventiva-exec-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.preventiva-exec-item-main > span { flex: 1; font-size: var(--fonte-corpo); line-height: 1.4; }
+
+.preventiva-exec-okna {
+  display: flex;
+  flex-shrink: 0;
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.preventiva-exec-okna-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  padding: 0.3rem 0.65rem;
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.preventiva-exec-okna-option + .preventiva-exec-okna-option { border-left: 1px solid var(--linha); }
+
+.preventiva-exec-okna-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preventiva-exec-okna-option:has(input:disabled) { cursor: default; opacity: 0.6; }
+.preventiva-exec-okna-option:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: -2px; }
+
+.preventiva-exec-okna-option.is-checked.is-ok {
+  background: color-mix(in srgb, var(--acento) 20%, transparent);
+  color: var(--acento);
+  font-weight: 600;
+}
+
+.preventiva-exec-okna-option.is-checked.is-na {
+  background: color-mix(in srgb, var(--apagado) 22%, transparent);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+.preventiva-exec-observacao-toggle {
+  margin-top: 0.3rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--apagado);
+  font-size: var(--fonte-label);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.preventiva-exec-observacao-toggle:hover { color: var(--acento); }
+
+.preventiva-exec-observacao-input {
+  display: block;
+  margin-top: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--linha);
+  background: var(--superficie);
+  color: var(--tinta);
+  font-size: var(--fonte-label);
+}
+
+.preventiva-exec-observacao-input:focus {
+  border-color: var(--acento);
+  outline: 1px solid var(--acento);
+}
+
+.preventiva-admin-checklist-secao {
+  margin-bottom: 0.4rem;
+  color: var(--apagado);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

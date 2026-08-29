@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 
 import { CategoryDifficultyPanel } from "@/components/admin/CategoryDifficultyPanel";
+import { ChecklistItemsPanel } from "@/components/admin/ChecklistItemsPanel";
 import { CollectionPanel } from "@/components/admin/CollectionPanel";
+import { ComputerSyncPanel } from "@/components/admin/ComputerSyncPanel";
 import { ConfigPresetsPanel } from "@/components/admin/ConfigPresetsPanel";
+import { SectorSyncPanel } from "@/components/admin/SectorSyncPanel";
 import { Avatar } from "@/components/ui/Avatar";
 import { Botao } from "@/components/ui/Botao";
 import { Tabs } from "@/components/ui/Tabs";
@@ -27,7 +30,7 @@ import { SCORE_LABELS } from "@/lib/score";
 import { useTechnicians } from "@/lib/technicians";
 import { useUnits } from "@/lib/units";
 
-type AdminTab = "coleta" | "score" | "presets" | "equipe" | "categorias";
+type AdminTab = "coleta" | "score" | "presets" | "equipe" | "categorias" | "checklists";
 
 const ADMIN_TABS: { key: AdminTab; label: string }[] = [
   { key: "coleta", label: "Coleta" },
@@ -35,6 +38,7 @@ const ADMIN_TABS: { key: AdminTab; label: string }[] = [
   { key: "presets", label: "Presets" },
   { key: "equipe", label: "Equipe" },
   { key: "categorias", label: "Categorias" },
+  { key: "checklists", label: "Checklists" },
 ];
 
 export default function AdminPage() {
@@ -63,7 +67,13 @@ export default function AdminPage() {
         <Tabs tabs={ADMIN_TABS} active={tab} onChange={(key) => setTab(key as AdminTab)} />
       </div>
 
-      {tab === "coleta" && <CollectionPanel />}
+      {tab === "coleta" && (
+        <div className="admin-dashboard-stack">
+          <CollectionPanel />
+          <SectorSyncPanel />
+          <ComputerSyncPanel />
+        </div>
+      )}
 
       {tab === "score" && (
         <div className="admin-dashboard-stack">
@@ -82,6 +92,8 @@ export default function AdminPage() {
       )}
 
       {tab === "categorias" && <CategoryDifficultyPanel />}
+
+      {tab === "checklists" && <ChecklistItemsPanel />}
     </main>
   );
 }

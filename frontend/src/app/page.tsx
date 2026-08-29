@@ -36,6 +36,11 @@ export default function HubPage() {
             <span style={{ color: "var(--apagado)", fontSize: "var(--fonte-label)" }}>{u.completename}</span>
           </Link>
         ))}
+
+        <Link href="/preventiva" className="sumula-cartao" style={cardStyle}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 600, whiteSpace: "nowrap" }}>Manutenção Preventiva</span>
+          <span style={{ color: "var(--apagado)", fontSize: "var(--fonte-label)" }}>Ciclos, inventário e setores</span>
+        </Link>
       </div>
     </main>
   );

@@ -564,12 +564,27 @@ export const adminApi = {
       method: "POST",
       headers: adminHeaders(creds),
     }),
-  listCollectionRuns: (query: CollectionRunQuery, creds: AdminCredentials) => {
+  syncSectors: (creds: AdminCredentials) =>
+    req<CollectionRun>("/admin/sync-sectors", {
+      method: "POST",
+      headers: adminHeaders(creds),
+    }),
+  syncComputers: (creds: AdminCredentials) =>
+    req<CollectionRun>("/admin/sync-computers", {
+      method: "POST",
+      headers: adminHeaders(creds),
+    }),
+  listCollectionRuns: (
+    query: CollectionRunQuery,
+    creds: AdminCredentials,
+    tipo: "chamados" | "setores" | "computadores" = "chamados",
+  ) => {
     const params = new URLSearchParams({
       page: String(query.page),
       page_size: String(query.pageSize),
       sort_by: query.sortBy,
       sort_dir: query.sortDir,
+      tipo,
     });
     if (query.status) params.set("status", query.status);
     return req<CollectionRunPage>(`/admin/collection-runs?${params}`, { headers: adminHeaders(creds) });
@@ -662,6 +677,340 @@ export const adminApi = {
       headers: { ...adminHeaders(creds), "Content-Type": "application/json" },
       body: JSON.stringify(bundle),
     }),
+};
+
+// --- Manutenção Preventiva de Computadores + Inventário (docs/requisitos.md) ---
+
+export interface Sector {
+  id_glpi: number;
+  nome: string;
+  entities_id: number;
+  unidade_slug: string;
+  ativo: boolean;
+  qtd_computadores: number;
+}
+
+export interface Computer {
+  id: number;
+  /** null = PC sem etiqueta de patrimônio (nunca etiquetado, ou importado do
+   * GLPI sem "Número de inventário" preenchido). */
+  patrimonio: string | null;
+  hostname: string | null;
+  /** null = PC ainda sem setor atribuído na plataforma (comum logo depois de
+   * importar do GLPI, quando o "Usuário" não resolveu pra um setor conhecido). */
+  setor_atual_id: number | null;
+  setor_alterado_em: string | null;
+  criado_em: string;
+  ativo: boolean;
+  /** próxima manutenção prevista (derivada do ciclo mais recente); null se o PC
+   * nunca teve preventiva finalizada. Só vem preenchida em GET /computers. */
+  proxima_preventiva: string | null;
+  /** saúde do equipamento (0-100, maior = melhor), derivada do hardware trazido
+   * pelo GLPI Agent. null = PC nunca sincronizado com o GLPI (cadastro manual). */
+  hardware_score: number | null;
+  hardware_nivel: "critico" | "atencao" | "bom" | null;
+  hardware_detalhes: string[] | null;
+  /** id do Computer no GLPI quando o PC foi importado pelo sync; null = cadastro
+   * 100% manual (nome/patrimônio editáveis livremente, sem risco de o sync
+   * sobrescrever). */
+  id_glpi_computer: number | null;
+}
+
+export interface ComputerHardware {
+  ram_mb: number | null;
+  disco_tipo: string | null;
+  disco_total_mb: number | null;
+  disco_livre_mb: number | null;
+  so_nome: string | null;
+  so_instalado_em: string | null;
+  cpu_designacao: string | null;
+  gpu_designacao: string | null;
+  gpu_memoria_mb: number | null;
+  atualizado_em: string;
+}
+
+export interface ScoreComponente {
+  dimensao: string;
+  pontos: number;
+  peso: number;
+  texto: string;
+}
+
+export interface ComputerDetail extends Computer {
+  hardware: ComputerHardware | null;
+  score_componentes: ScoreComponente[] | null;
+}
+
+export interface ComputerPage {
+  items: Computer[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export type CyclePriority = "alta" | "normal" | "baixa";
+export type CycleItemStatus = "planejado" | "confirmado" | "concluido" | "remarcado" | "pendente";
+export type CycleResultado = "sem_achado" | "ajuste_simples" | "corretiva_aberta" | "interrompido";
+export type CycleStatus = "planejamento" | "encerrado";
+
+export interface PlanningChecklistItem {
+  item: string;
+  ok: boolean;
+  marcado_por?: string;
+  marcado_em?: string;
+}
+
+export interface Cycle {
+  id: number;
+  nome: string;
+  data_inicio: string | null;
+  data_prevista_encerramento: string | null;
+  responsavel_id: number;
+  status: CycleStatus;
+  intervalo_alta_meses: number;
+  intervalo_normal_meses: number;
+  intervalo_baixa_meses: number;
+  planejamento_itens: PlanningChecklistItem[] | null;
+  criado_em: string;
+}
+
+export interface CyclePage {
+  items: Cycle[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface ReconfirmChecklistItem {
+  item: string;
+  ok: boolean;
+}
+
+export interface ExecutionChecklistItem {
+  item: string;
+  status: "ok" | "na" | null;
+  observacao: string;
+}
+
+export interface CycleItem {
+  id: number;
+  ciclo_id: number;
+  computador_id: number;
+  tecnico_id: number | null;
+  prioridade: CyclePriority;
+  status: CycleItemStatus;
+  data_agendada: string | null;
+  reconfirmacao_itens: ReconfirmChecklistItem[] | null;
+  execucao_itens: ExecutionChecklistItem[] | null;
+  execucao_status: "rascunho" | "finalizado" | null;
+  resultado: CycleResultado | null;
+  resumo: string | null;
+  chamado_glpi: string | null;
+  pendencia_responsavel: string | null;
+  pendencia_prazo: string | null;
+  ponto_focal_nome: string | null;
+  ponto_focal_data: string | null;
+  proxima_preventiva: string | null;
+  motivo_remarcacao: string | null;
+  criado_em: string;
+}
+
+export interface CycleDetail extends Cycle {
+  itens: CycleItem[];
+}
+
+export type ChecklistTipo = "planejamento" | "reconfirmacao" | "execucao";
+
+export interface ChecklistItemDef {
+  id: number;
+  tipo: ChecklistTipo;
+  texto: string;
+  secao: string | null;
+  ordem: number;
+  ativo: boolean;
+}
+
+export const sectors = {
+  list: (ativo?: boolean) => {
+    const qs = ativo != null ? `?ativo=${ativo}` : "";
+    return req<Sector[]>(`/preventiva/sectors${qs}`);
+  },
+  get: (idGlpi: number) => req<Sector>(`/preventiva/sectors/${idGlpi}`),
+};
+
+export type ComputerSort = "patrimonio" | "hostname" | "setor" | "criado_em";
+
+export const computers = {
+  list: (
+    opts: {
+      page?: number;
+      pageSize?: number;
+      setorAtualId?: number;
+      patrimonio?: string;
+      incluirInativos?: boolean;
+      sort?: ComputerSort;
+      sortDir?: "asc" | "desc";
+    } = {},
+  ) => {
+    const params = new URLSearchParams();
+    params.set("page", String(opts.page ?? 1));
+    params.set("page_size", String(opts.pageSize ?? 10));
+    if (opts.setorAtualId != null) params.set("setor_atual_id", String(opts.setorAtualId));
+    if (opts.patrimonio) params.set("patrimonio", opts.patrimonio);
+    if (opts.incluirInativos) params.set("incluir_inativos", "true");
+    if (opts.sort) params.set("sort", opts.sort);
+    if (opts.sortDir) params.set("sort_dir", opts.sortDir);
+    return req<ComputerPage>(`/preventiva/computers?${params}`);
+  },
+  get: (computerId: number) => req<ComputerDetail>(`/preventiva/computers/${computerId}`),
+  create: (payload: { patrimonio?: string | null; hostname?: string | null; setor_atual_id: number }) =>
+    req<Computer>("/preventiva/computers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  update: (
+    computerId: number,
+    // patrimonio/setor_atual_id aceitam null explícito pra *limpar* o campo
+    // (backend usa exclude_unset: chave ausente = não mexe, null = limpa).
+    payload: { patrimonio?: string | null; hostname?: string | null; setor_atual_id?: number | null; ativo?: boolean },
+  ) =>
+    req<Computer>(`/preventiva/computers/${computerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  move: (computerId: number, setorAtualId: number) =>
+    req<Computer>(`/preventiva/computers/${computerId}/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ setor_atual_id: setorAtualId }),
+    }),
+  // hardware informado à mão (PC sem GLPI Agent) - o score passa a ser
+  // calculado igual a um PC sincronizado. `null` em qualquer campo = "não sei".
+  saveHardware: (
+    computerId: number,
+    payload: Partial<Omit<ComputerHardware, "atualizado_em">>,
+  ) =>
+    req<ComputerDetail>(`/preventiva/computers/${computerId}/hardware`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  deleteHardware: (computerId: number) =>
+    req<{ ok: boolean }>(`/preventiva/computers/${computerId}/hardware`, { method: "DELETE" }),
+  /** hard delete - some da plataforma de vez. 409 se o PC está em algum ciclo
+   * (aí o certo é `update(..., { ativo: false })` = baixa). */
+  remove: (computerId: number) =>
+    req<{ ok: boolean }>(`/preventiva/computers/${computerId}`, { method: "DELETE" }),
+};
+
+export const cycles = {
+  list: (opts: { page?: number; pageSize?: number; status?: CycleStatus } = {}) => {
+    const params = new URLSearchParams();
+    params.set("page", String(opts.page ?? 1));
+    params.set("page_size", String(opts.pageSize ?? 10));
+    if (opts.status) params.set("status", opts.status);
+    return req<CyclePage>(`/preventiva/cycles?${params}`);
+  },
+  get: (cycleId: number) => req<CycleDetail>(`/preventiva/cycles/${cycleId}`),
+  create: (payload: {
+    nome: string;
+    data_inicio?: string | null;
+    data_prevista_encerramento?: string | null;
+    responsavel_id: number;
+    intervalo_alta_meses?: number;
+    intervalo_normal_meses?: number;
+    intervalo_baixa_meses?: number;
+  }) =>
+    req<Cycle>("/preventiva/cycles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  remove: (cycleId: number) =>
+    req<{ ok: boolean }>(`/preventiva/cycles/${cycleId}`, { method: "DELETE" }),
+  markPlanningChecklist: (cycleId: number, indice: number, ok: boolean) =>
+    req<Cycle>(`/preventiva/cycles/${cycleId}/planning-checklist`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ indice, ok }),
+    }),
+  close: (cycleId: number) => req<Cycle>(`/preventiva/cycles/${cycleId}/close`, { method: "POST" }),
+  addItem: (cycleId: number, computadorId: number, prioridade: CyclePriority = "normal", tecnicoId?: number | null) =>
+    req<CycleItem>(`/preventiva/cycles/${cycleId}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ computador_id: computadorId, prioridade, tecnico_id: tecnicoId ?? null }),
+    }),
+  removeItem: (cycleId: number, itemId: number) =>
+    req<{ ok: boolean }>(`/preventiva/cycles/${cycleId}/items/${itemId}`, { method: "DELETE" }),
+  schedule: (cycleId: number, itemId: number, dataAgendada: string, tecnicoId: number) =>
+    req<CycleItem>(`/preventiva/cycles/${cycleId}/items/${itemId}/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data_agendada: dataAgendada, tecnico_id: tecnicoId }),
+    }),
+  reconfirm: (cycleId: number, itemId: number, marcas: Record<string, boolean>) =>
+    req<CycleItem>(`/preventiva/cycles/${cycleId}/items/${itemId}/reconfirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marcas }),
+    }),
+  execute: (
+    cycleId: number,
+    itemId: number,
+    payload: {
+      itens: Record<string, "ok" | "na">;
+      observacoes?: Record<string, string>;
+      resultado?: CycleResultado | null;
+      resumo?: string | null;
+      chamado_glpi?: string | null;
+      pendencia_responsavel?: string | null;
+      pendencia_prazo?: string | null;
+      ponto_focal_nome?: string | null;
+      ponto_focal_data?: string | null;
+      proxima_preventiva?: string | null;
+      rascunho: boolean;
+    },
+  ) =>
+    req<CycleItem>(`/preventiva/cycles/${cycleId}/items/${itemId}/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  reschedule: (cycleId: number, itemId: number, motivo: string, novaData?: string | null) =>
+    req<CycleItem>(`/preventiva/cycles/${cycleId}/items/${itemId}/reschedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ motivo, nova_data: novaData ?? null }),
+    }),
+};
+
+export const checklistItems = {
+  list: (tipo?: ChecklistTipo, ativo?: boolean) => {
+    const params = new URLSearchParams();
+    if (tipo) params.set("tipo", tipo);
+    if (ativo != null) params.set("ativo", String(ativo));
+    const qs = params.toString();
+    return req<ChecklistItemDef[]>(`/preventiva/checklist-items${qs ? `?${qs}` : ""}`);
+  },
+  create: (tipo: ChecklistTipo, texto: string, ordem: number, secao?: string | null) =>
+    req<ChecklistItemDef>("/preventiva/checklist-items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, texto, ordem, secao: secao ?? null }),
+    }),
+  update: (id: number, updates: Partial<{ texto: string; secao: string | null; ordem: number; ativo: boolean }>) =>
+    req<ChecklistItemDef>(`/preventiva/checklist-items/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    }),
+  remove: (id: number) =>
+    req<{ ok: boolean }>(`/preventiva/checklist-items/${id}`, { method: "DELETE" }),
 };
 
 export interface TechnicianProfileUpdate {
