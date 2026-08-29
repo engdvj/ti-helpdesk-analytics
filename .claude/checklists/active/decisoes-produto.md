@@ -9,5 +9,3 @@ Não bloqueiam nada — só não foram resolvidas.
 - [ ] **`foi_reaberto` entra no `score_geral`?** — já coletado e exibido no perfil do técnico (aba
       Chamados/Histórico), mas ainda não pesa na nota. Avaliar depois de mais semanas de dado se o
       sinal é forte/estável o bastante pra virar um `score_qualidade`.
-- [ ] Autenticação/login — hoje não existe (acesso é só por estar na rede interna do hospital).
-      Adicionar se decidirem que precisa.
