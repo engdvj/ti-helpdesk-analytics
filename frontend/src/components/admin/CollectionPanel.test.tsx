@@ -157,21 +157,21 @@ describe("CollectionPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Rodar coleta" }));
     await waitFor(() => expect(mocks.collect).toHaveBeenCalledWith({ username: "admin", password: "secret" }));
-    expect(mocks.mutateLocal).toHaveBeenCalled();
+    // depois de disparar a coleta, força o histórico (SyncHistory) a recarregar
+    expect(mocks.mutateGlobal).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Solicitada em" }));
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "error" } });
     fireEvent.click(screen.getByRole("button", { name: "Próxima" }));
 
     await waitFor(() => {
-      // CollectionPanel nao e mais o unico consumidor de useSWR na arvore
-      // (AutoCollectControl tambem chama, com a chave "auto-collect") -
-      // procura a chamada com a chave que interessa em vez de assumir que
-      // e a ultima.
+      // O histórico vive em <SyncHistory>; a chave ganhou o `tipo` no índice 1.
+      // AutoCollectControl também chama useSWR (chave "auto-collect") - procura
+      // a chamada certa em vez de assumir que é a última.
       const collectionRunsKey = mocks.useSWR.mock.calls
         .map((call) => call[0])
         .findLast((key) => Array.isArray(key) && key[0] === "collection-runs");
-      expect(collectionRunsKey).toEqual(["collection-runs", "admin", 2, 10, "requested_at", "asc", "error"]);
+      expect(collectionRunsKey).toEqual(["collection-runs", "chamados", "admin", 2, 10, "requested_at", "asc", "error"]);
     });
   });
 });
