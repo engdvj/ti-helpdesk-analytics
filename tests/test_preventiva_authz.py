@@ -85,7 +85,7 @@ def test_require_cycle_manager_404_ciclo_inexistente(db):
     assert exc.value.status_code == 404
 
 
-# --- require_item_executor (C3 - so o tecnico atribuido, nem o responsavel) --
+# --- require_item_executor (C3 - admin, responsavel do ciclo OU tecnico do item) --
 
 def test_require_item_executor_allows_admin(db):
     session, _, item = db
@@ -97,17 +97,27 @@ def test_require_item_executor_allows_tecnico_atribuido(db):
     assert require_item_executor(item.id, _identity("tecnico", 2), session).id == item.id
 
 
-def test_require_item_executor_rejects_responsavel_que_nao_e_o_tecnico(db):
+def test_require_item_executor_allows_responsavel_do_ciclo(db):
     session, _, item = db
-    with pytest.raises(HTTPException) as exc:
-        require_item_executor(item.id, _identity("tecnico", 1), session)  # responsavel, nao o tecnico atribuido
-    assert exc.value.status_code == 403
+    # responsavel do ciclo (users_id=1), mesmo nao sendo o tecnico do item (2)
+    assert require_item_executor(item.id, _identity("tecnico", 1), session).id == item.id
 
 
 def test_require_item_executor_rejects_tecnico_qualquer(db):
     session, _, item = db
     with pytest.raises(HTTPException) as exc:
         require_item_executor(item.id, _identity("tecnico", 3), session)
+    assert exc.value.status_code == 403
+
+
+# --- inventario (require_admin_session) - so o admin muta, o resto so le ----
+
+def test_inventario_bloqueado_para_tecnico(db):
+    # as mutacoes de /preventiva/computers/* usam require_admin_session; um
+    # tecnico (mesmo responsavel de ciclo) nao passa.
+    session, _, _ = db
+    with pytest.raises(HTTPException) as exc:
+        require_admin_session(_identity("tecnico", 1))
     assert exc.value.status_code == 403
 
 
