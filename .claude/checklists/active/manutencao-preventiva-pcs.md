@@ -342,10 +342,81 @@ criado: `Preventiva Setembro 2026`, id 1, em `/preventiva/1`).
         `EditComputerModal`, separado da baixa. `.preventiva-linkish`/`.is-danger` no `globals.css`.
   - [x] `+7` testes backend (`test_inventory.py`: hardware manual/upsert/422, delete hardware,
         hard delete ok/409/404) + `ComputerDetailModal.test.tsx` reescrito pro estado manual.
+- [x] **Autorização por papel afinada** (feedback do usuário 2026-08-31, em 2 rodadas).
+      **Regra final**: inventário (criar/editar/mover/baixar/excluir PC + hardware manual) = **só o
+      admin**; todo o resto **apenas visualiza**. Na tela do ciclo, o técnico responsável gerencia
+      o ciclo dele por inteiro; o técnico alocado a um item só preenche o checklist daquele item.
+  - Backend:
+    - [x] As 6 mutações de `/preventiva/computers/*` (create, PATCH, /move, PUT+DELETE /hardware,
+          DELETE) usam `require_admin_session`. GET de `computers`/`sectors`/`computers/{id}`
+          continua em `require_session` (o técnico vê tudo, só não muta).
+    - [x] `require_item_executor` passou a aceitar também o **responsável do ciclo** do item (antes
+          só admin + técnico do item). Idem o gate de "reabrir item finalizado" em `execute_item`
+          (admin **ou** responsável). Hoje coincide com `require_item_actor`; nomes separados de
+          propósito (§5/§5.1).
+    - [x] `test_preventiva_authz.py`: `require_item_executor` agora aceita responsável (+1 teste);
+          inventário bloqueado p/ técnico (+1). Suite: 261 py.
+    - [x] Uma tentativa intermediária (`require_inventory_manager` = "responsável de ciclo aberto",
+          `GET /preventiva/permissions`) foi **descartada** por pedido do usuário — inventário é
+          admin puro.
+  - Frontend:
+    - [x] Inventário (`/preventiva/inventario` + `/setor/[id]`): só-leitura sem `isAdmin` —
+          `ComputerList podeEditar={isAdmin}` (some coluna Ações + `EditComputerModal`),
+          `ComputerDetailModal podeEditar` (some "Editar"/"Informar manualmente"/editar+remover
+          hardware; score e specs ficam pra todos), form de cadastro escondido, aviso "acesso de
+          leitura, só o admin edita".
+    - [x] `/preventiva/[id]`: `souGestor = isAdmin || cycle.responsavel_id === usersId`. Aba
+          Fechamento e `AddItemsSection` só pro gestor; `PlanningChecklist readOnly` pros demais.
+    - [x] `CycleItemRow`: trocou `useAdmin()` por props `souGestor`/`meuUserId`. Agendar/Reagendar/
+          Tirar-do-ciclo/editar-finalizado = só gestor; Reconfirmar/Executar/Remarcar = gestor **ou**
+          técnico do item; terceiro sem ação vê "—". `CycleItemRow.test.tsx` novo (6 casos).
+    - [x] `/preventiva` esconde "Novo ciclo" de quem não é admin. Testes: 67 front, build + tsc limpos.
+- [x] **Histórico de sync de setores/computadores** (feedback do usuário: "ajusta pra setores e
+      computadores terem um histórico bem definido também" — antes só tinham uma linha de texto
+      "última sincronização: N criados..."). `SyncHistory` novo (`components/admin/SyncHistory.tsx`)
+      — tabela ordenável + filtro de status + paginação + linha expansível (contagens + traceback),
+      genérica pelos 3 `tipo` de `collection_runs` (`SYNC_PRESETS` traz o vocabulário de cada um).
+      `CollectionPanel` refatorado pra usá-la (−228 linhas líquidas nos 3 painéis). `SectorSyncPanel`/
+      `ComputerSyncPanel` ganharam a mesma UI (controle + banner de execução ativa + histórico).
+      +3 testes (`SyncHistory.test.tsx`), `CollectionPanel.test.tsx` ajustado (chave SWR ganhou `tipo`).
+  - **`prune_sync_runs(db, tipo)`** novo em `collection_jobs.py` — o histórico de setores/computadores
+    nunca era podado (só `tipo="chamados"` via `prune_old_collections`). Chamado no fim de cada
+    `execute_sector_sync`/`execute_computer_sync` bem-sucedido (retenção 10, igual chamados). +1 teste.
+  - **`SyncAllPanel`** ("Sincronizar tudo") — 1 botão dispara os 3 (`collect` + `syncSectors` +
+    `syncComputers` via `Promise.allSettled`); o que já estiver rodando é ignorado. Decisão do
+    usuário (2026-08-31): **coleta automática continua só chamados**; os syncs de setor/computador
+    seguem manuais (individuais ou pelo "Sincronizar tudo"). +2 testes. 72 front, 262 py.
+- [x] **Ações do ciclo com ícones + setor transversal sempre selecionável** (feedback do usuário,
+      2026-08-31/2026-09-04).
+  - `CycleItemRow`: ações (Agendar/Reconfirmar/Executar/Remarcar/Tirar do ciclo) viraram ícones
+    (`lucide-react`) com `title`/`aria-label`, no lugar dos `<Botao>` de texto — mesmo padrão do
+    ícone de editar em `ComputerList`. `.preventiva-icon-btn.is-primary` novo em `globals.css` pra
+    destacar "Executar" sem virar botão de texto.
+  - **Bug**: setores transversais (`unidade_slug === "geral"` — Tecnologia da Informação,
+    Manutenção Predial, Manutenção de Equipamentos; contas GLPI categoria "Supervisor") não
+    apareciam pra atribuir um PC porque `EditComputerModal` filtrava setor pela unidade
+    selecionada (HGVC/UPA) e "geral" não é nenhuma das duas. Causa raiz real: a última
+    sincronização de setores era de antes dessas 3 contas existirem no GLPI — rodar o sync de novo
+    já resolvia o dado (110 setores agora, era 107). Ajuste de código: `EditComputerModal` agora
+    inclui setores `geral` na lista de Setor **independente** da unidade escolhida (rótulo
+    "(transversal)"), e o seletor de Unidade não lista mais "geral" como opção. Mesmo ajuste ainda
+    falta em `ComputerList` (filtro de setor) e `ComputerForm` (cadastro) — não feito porque esses
+    dois arquivos estavam sendo mexidos por outra sessão em paralelo nesse momento.
+  - +2 testes (`EditComputerModal.test.tsx`). 74 front, 262 py.
+- [ ] **Checklist de execução (C3) — pedido do usuário ainda não implementado** (2026-09-04):
+  - Aba "Validação" → campo "responsável do setor" (texto livre) devia virar OK/N.A. como os
+    itens do checklist, e a data devia preencher sozinha (hoje: `ponto_focal_nome`/`ponto_focal_data`
+    digitados à mão em `ExecutionChecklist.tsx`).
+  - Aba "Resultado" inteira (dropdown de 4 opções + resumo) sai. No lugar, um toggle "ficou
+    pendência?" — desligado finaliza Concluído; ligado pede chamado GLPI + responsável + prazo e
+    finaliza Pendente (decisão do usuário via `AskUserQuestion`, mantém a regra de ouro do PDF e o
+    trava-fechamento do C5). Mexe em `ExecutionChecklist.tsx` + `services/ciclos.py::executar_item`
+    (troca `resultado: Resultado` por algo tipo `ficou_pendencia: bool`) + `schemas/
+    maintenance_cycle_item.py` (`ExecuteRequest`).
 
 ## Quality gates
 
-- [x] Testes passando: `pytest -q` → 260/260. `npm run test` → 61/61. `npm run build` → limpo.
+- [x] Testes passando: `pytest -q` → 262/262. `npm run test` → 74/74. `npm run build` + `tsc` → limpos.
 - [ ] `/davi-core:review` aprovado (inclui security — autorização por recurso e captura de ator
       já mapeadas em `backend.md` §5/§6, conferir que a implementação seguiu à risca; conferir
       também o gate novo de edição pós-finalização)

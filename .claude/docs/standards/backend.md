@@ -425,11 +425,35 @@ def require_item_actor(
 Cada router usa `Depends(require_cycle_manager)`/`require_item_executor`/`require_item_actor` no
 lugar de repetir a checagem — ganho duplo: zero duplicação de regra de autorização entre
 endpoints, e o handler já recebe o objeto carregado (evita um segundo `db.get()` dentro da
-função, mesmo espírito de evitar N+1 do §3.3). Três dependências, não uma genérica parametrizada,
-porque as três regras são de fato diferentes (`cycle_manager` exclui o técnico comum;
-`item_executor` exclui até o responsável do ciclo se ele não for o técnico atribuído;
-`item_actor` inclui os dois) — forçar isso numa função só com flags booleanas espalha a decisão de
-"quem pode o quê" pro call-site de cada router, voltando ao problema original.
+função, mesmo espírito de evitar N+1 do §3.3). Dependências separadas, não uma genérica
+parametrizada, porque as regras são de fato diferentes (`cycle_manager` exclui o técnico comum;
+`item_actor` inclui responsável **e** técnico do item) — forçar isso numa função só com flags
+booleanas espalha a decisão de "quem pode o quê" pro call-site de cada router, voltando ao
+problema original.
+
+### 5.1 Ajuste de 2026-08-31 (feedback do usuário testando ao vivo)
+
+Duas mudanças, cada uma numa camada:
+
+- **Inventário = só o admin muta.** Todas as mutações de `/preventiva/computers/*` (`POST`,
+  `PATCH .../{id}`, `.../move`, `PUT`/`DELETE .../{id}/hardware`, `DELETE .../{id}`) usam
+  `require_admin_session`. A leitura (`GET /computers`, `GET /sectors`, `GET /computers/{id}`)
+  continua em `require_session` — o técnico **vê** o inventário (setores, PCs, specs, score de
+  saúde), só não cria/edita/move/exclui. Decisão explícita do usuário: "a parte de inventários,
+  quem pode editar/apagar/criar é apenas o admin; o resto apenas visualiza". Não há papel
+  intermediário aqui (uma versão anterior tentou "responsável de ciclo aberto" — descartada por
+  pedido do usuário).
+- **`require_item_executor`** passou a aceitar também o **responsável do ciclo** do item (antes só
+  admin + `item.tecnico_id`). Idem o gate de "reabrir item finalizado" em `execute_item`
+  (admin **ou** responsável, não só admin). Isso é sobre o fluxo do ciclo, não sobre inventário:
+  o responsável gerencia o ciclo dele por inteiro; o técnico comum só age nos itens atribuídos a
+  ele. Consequência: `require_item_executor` e `require_item_actor` hoje têm a mesma regra; os
+  nomes seguem separados de propósito — marcam intenções distintas no call site e podem divergir
+  de novo (ex. se "executar" ganhar uma precondição que "remarcar" não tem).
+
+O frontend espelha isso escondendo botão que daria 403 (`useAdmin().isAdmin` no inventário;
+`isAdmin || cycle.responsavel_id === usersId` na tela do ciclo) — mas o controle de acesso real é
+sempre o backend, por rota.
 
 ## 6. Quem fez a ação — sempre de `CurrentIdentity`, nunca do body
 
@@ -509,7 +533,8 @@ escolhido pelo gestor, não uma alegação de "quem eu sou" — esse sim vem do 
 - **RBAC**: 2 papéis globais (`tecnico`/`admin`, inalterado) **+** autorização por instância de
   recurso (§5) — a parte nova. Documentado aqui porque `authorization-rbac-design` cobre
   exatamente essa distinção "checagem no nível de endpoint" vs "checagem no nível de instância", e
-  o projeto até agora só tinha a primeira.
+  o projeto até agora só tinha a primeira. Mutação de inventário é a exceção que ficou **só no
+  nível de endpoint** (`require_admin_session`, §5.1) — não há dono de PC a checar.
 - **Rate limiting**: não aplicável — mesma justificativa já documentada em `CLAUDE.md` (rede
   interna do hospital, sem exposição pública), reafirmada aqui pra não ficar implícita.
 - **Input validation**: todo payload de mutação (agendar, remarcar, checklist, cadastro de PC)
