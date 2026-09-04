@@ -19,7 +19,13 @@ from sqlalchemy.orm import Session
 from api.app.db import SessionLocal
 from api.app.models.collection_run import CollectionRun
 from api.app.models.sector import Sector
-from api.app.services.collection_jobs import ACTIVE_COLLECTION_STATUSES, _duration, _mark_failed, utc_now
+from api.app.services.collection_jobs import (
+    ACTIVE_COLLECTION_STATUSES,
+    _duration,
+    _mark_failed,
+    prune_sync_runs,
+    utc_now,
+)
 from ti_analytics.config import GlpiConfig, load_config
 from ti_analytics.glpi.client import get_paginated, init_session, kill_session
 from ti_analytics.glpi.entities import discover_group_id, discover_user_category_id
@@ -207,6 +213,7 @@ def execute_sector_sync(run_id: str) -> None:
                 run.error = None
                 run.error_details = None
                 db.commit()
+                prune_sync_runs(db, TIPO)
             except Exception as exc:
                 _mark_failed(db, run_id, exc)
         finally:

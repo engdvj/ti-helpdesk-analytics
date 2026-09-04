@@ -164,7 +164,29 @@ def prune_old_collections(db: Session, keep: int = COLLECTION_RETENTION) -> None
         db.scalars(
             select(CollectionRun)
             .where(
-                CollectionRun.tipo == "chamados",  # setor sync (tipo="setores") tem retencao propria
+                CollectionRun.tipo == "chamados",  # sync de setores/computadores usa prune_sync_runs
+                CollectionRun.status.notin_(ACTIVE_COLLECTION_STATUSES),
+            )
+            .order_by(CollectionRun.requested_at.desc())
+            .offset(keep)
+        ).all()
+    )
+    for run in old_runs:
+        db.delete(run)
+    if old_runs:
+        db.commit()
+
+
+def prune_sync_runs(db: Session, tipo: str, keep: int = COLLECTION_RETENTION) -> None:
+    """Retencao dos syncs sem snapshot bruto (setores/computadores): apaga so
+    as linhas de CollectionRun desse `tipo` alem das `keep` mais recentes (a
+    coleta de chamados usa prune_old_collections, que tambem limpa raw/).
+    Chamado no fim de cada execute_*_sync bem-sucedido."""
+    old_runs = list(
+        db.scalars(
+            select(CollectionRun)
+            .where(
+                CollectionRun.tipo == tipo,
                 CollectionRun.status.notin_(ACTIVE_COLLECTION_STATUSES),
             )
             .order_by(CollectionRun.requested_at.desc())

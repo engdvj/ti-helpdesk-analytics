@@ -21,7 +21,13 @@ from api.app.models.collection_run import CollectionRun
 from api.app.models.computer import Computer
 from api.app.models.computer_hardware import ComputerHardware
 from api.app.models.sector import Sector
-from api.app.services.collection_jobs import ACTIVE_COLLECTION_STATUSES, _duration, _mark_failed, utc_now
+from api.app.services.collection_jobs import (
+    ACTIVE_COLLECTION_STATUSES,
+    _duration,
+    _mark_failed,
+    prune_sync_runs,
+    utc_now,
+)
 from api.app.services.hardware_sync import fetch_all_hardware
 from ti_analytics.config import GlpiConfig
 from ti_analytics.glpi.client import get_paginated, init_session, kill_session
@@ -205,6 +211,7 @@ def execute_computer_sync(run_id: str) -> None:
                 run.error = None
                 run.error_details = None
                 db.commit()
+                prune_sync_runs(db, TIPO)
             except Exception as exc:
                 _mark_failed(db, run_id, exc)
         finally:
