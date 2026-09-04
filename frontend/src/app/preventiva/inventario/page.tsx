@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ComputerList } from "@/components/preventiva/ComputerList";
 import { SectorList } from "@/components/preventiva/SectorList";
 import { Tabs } from "@/components/ui/Tabs";
+import { useAdmin } from "@/lib/admin-context";
 
 type InventarioTab = "setores" | "computadores";
 
@@ -16,6 +17,7 @@ const TABS = [
 
 export default function InventarioPage() {
   const [tab, setTab] = useState<InventarioTab>("setores");
+  const { isAdmin } = useAdmin();
 
   return (
     <main className="sumula-container-hub" style={{ flex: 1 }}>
@@ -25,6 +27,11 @@ export default function InventarioPage() {
           Inventário de computadores
         </h1>
         <p style={{ color: "var(--apagado)" }}>Setores sincronizados do GLPI e os computadores cadastrados em cada um.</p>
+        {!isAdmin && (
+          <p style={{ color: "var(--apagado)", fontSize: "var(--fonte-label)", marginTop: "0.35rem" }}>
+            Acesso de leitura. Só o admin cadastra, edita ou remove computadores.
+          </p>
+        )}
       </div>
 
       <div style={{ marginBottom: "1.5rem" }}>
@@ -47,7 +54,7 @@ export default function InventarioPage() {
             <h2>Computadores</h2>
             <p>Para cadastrar um computador novo, abra o setor dele na aba Setores.</p>
           </div>
-          <ComputerList />
+          <ComputerList podeEditar={isAdmin} />
         </section>
       )}
     </main>

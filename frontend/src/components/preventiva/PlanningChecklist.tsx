@@ -12,15 +12,19 @@ export function PlanningChecklist({
   cycleId,
   itens,
   onChanged,
+  readOnly = false,
 }: {
   cycleId: number;
   itens: PlanningChecklistItem[];
   onChanged: () => unknown;
+  /** Técnico que não é o responsável do ciclo vê o progresso mas não marca. */
+  readOnly?: boolean;
 }) {
   const [salvando, setSalvando] = useState<number | null>(null);
   const feitos = itens.filter((i) => i.ok).length;
 
   async function marcar(indice: number, ok: boolean) {
+    if (readOnly) return;
     setSalvando(indice);
     try {
       await cyclesApi.markPlanningChecklist(cycleId, indice, ok);
@@ -57,7 +61,7 @@ export function PlanningChecklist({
                           type="radio"
                           name={`plan-${indice}`}
                           checked={check.ok === valor}
-                          disabled={salvando === indice}
+                          disabled={salvando === indice || readOnly}
                           onChange={() => marcar(indice, valor)}
                         />
                         {rotulo}

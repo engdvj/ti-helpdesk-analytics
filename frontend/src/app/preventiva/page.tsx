@@ -4,8 +4,11 @@ import Link from "next/link";
 
 import { CycleList } from "@/components/preventiva/CycleList";
 import { Botao } from "@/components/ui/Botao";
+import { useAdmin } from "@/lib/admin-context";
 
 export default function PreventivaPage() {
+  const { isAdmin } = useAdmin();
+
   return (
     <main className="sumula-container-hub" style={{ flex: 1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
@@ -20,7 +23,7 @@ export default function PreventivaPage() {
         </div>
         <div style={{ display: "flex", gap: "0.6rem" }}>
           <Link href="/preventiva/inventario"><Botao variant="secundario">Inventário</Botao></Link>
-          <Link href="/preventiva/novo"><Botao variant="primario">Novo ciclo</Botao></Link>
+          {isAdmin && <Link href="/preventiva/novo"><Botao variant="primario">Novo ciclo</Botao></Link>}
         </div>
       </div>
 

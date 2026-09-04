@@ -28,10 +28,15 @@ export function ComputerDetailModal({
   computerId,
   onClose,
   onEditar,
+  podeEditar = false,
 }: {
   computerId: number;
   onClose: () => void;
-  onEditar: () => void;
+  /** Só passado quando `podeEditar` — abre o modal de edição do PC. */
+  onEditar?: () => void;
+  /** Sem isto (default): detalhe só-leitura — sem "Editar", sem informar/editar/
+   * remover hardware à mão. O score e as specs continuam visíveis pra todos. */
+  podeEditar?: boolean;
 }) {
   const { mutate: globalMutate } = useSWRConfig();
   const { data, error, isLoading, mutate } = useSWR(["computer", computerId], () => computersApi.get(computerId));
@@ -39,6 +44,7 @@ export function ComputerDetailModal({
   const [removendo, setRemovendo] = useState(false);
 
   const manual = data != null && data.id_glpi_computer == null;
+  const podeMexerHardware = podeEditar && manual;
 
   function revalidarLista() {
     void globalMutate((key) => Array.isArray(key) && (key[0] === "computers" || key[0] === "computer"));
@@ -70,7 +76,7 @@ export function ComputerDetailModal({
             {manual ? "Cadastro manual" : `Importado do GLPI (Computer #${data.id_glpi_computer})`}
           </p>
 
-          {editandoHw && manual ? (
+          {editandoHw && podeMexerHardware ? (
             <ComputerHardwareForm
               computerId={computerId}
               initial={data.hardware}
@@ -87,7 +93,7 @@ export function ComputerDetailModal({
                 Sem dados de hardware —{" "}
                 {manual ? "este PC não roda o GLPI Agent." : "este computador não foi importado do GLPI Agent."}
               </p>
-              {manual && (
+              {podeMexerHardware && (
                 <Botao variant="secundario" onClick={() => setEditandoHw(true)} style={{ marginTop: "0.7rem" }}>
                   Informar manualmente
                 </Botao>
@@ -134,7 +140,7 @@ export function ComputerDetailModal({
                     <h3 style={{ fontSize: "var(--fonte-label)", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--apagado)", margin: 0 }}>
                       Especificações
                     </h3>
-                    {manual && (
+                    {podeMexerHardware && (
                       <span style={{ display: "flex", gap: "0.75rem" }}>
                         <button type="button" className="preventiva-linkish" onClick={() => setEditandoHw(true)}>Editar</button>
                         <button type="button" className="preventiva-linkish is-danger" onClick={removerHardware} disabled={removendo}>
@@ -170,7 +176,7 @@ export function ComputerDetailModal({
           {!editandoHw && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.6rem" }}>
               <Botao variant="secundario" onClick={onClose}>Fechar</Botao>
-              <Botao variant="primario" onClick={onEditar}>Editar</Botao>
+              {podeEditar && onEditar && <Botao variant="primario" onClick={onEditar}>Editar</Botao>}
             </div>
           )}
         </div>

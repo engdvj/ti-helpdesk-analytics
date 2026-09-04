@@ -10,11 +10,13 @@ import { CloseCycleSummary } from "@/components/preventiva/CloseCycleSummary";
 import { CycleItemRow } from "@/components/preventiva/CycleItemRow";
 import { PlanningChecklist } from "@/components/preventiva/PlanningChecklist";
 import { Tabs } from "@/components/ui/Tabs";
+import { useAdmin } from "@/lib/admin-context";
 import {
   computers as computersApi,
   cycles as cyclesApi,
   technicians as techniciansApi,
 } from "@/lib/api";
+import { useSession } from "@/lib/session-context";
 
 type AbaCiclo = "planejamento" | "computadores" | "fechamento";
 
@@ -23,6 +25,8 @@ export default function CycleDetailPage() {
   const cycleId = Number(params.id);
 
   const [abaSelecionada, setAbaSelecionada] = useState<AbaCiclo>("planejamento");
+  const { isAdmin } = useAdmin();
+  const { usersId } = useSession();
 
   const { data: cycle, error, isLoading, mutate } = useSWR(["cycle", cycleId], () => cyclesApi.get(cycleId));
   // inclui PCs baixados: um computador desativado depois de entrar no ciclo
@@ -40,13 +44,18 @@ export default function CycleDetailPage() {
   if (isLoading && !cycle) return <main className="sumula-container-hub" style={{ flex: 1, padding: "2rem" }}><p style={{ color: "var(--apagado)" }}>Carregando ciclo...</p></main>;
   if (error || !cycle) return <main className="sumula-container-hub" style={{ flex: 1, padding: "2rem" }}><p style={{ color: "var(--critico)" }}>Ciclo não encontrado.</p></main>;
 
+  // "gestor deste ciclo" = admin ou o técnico responsável designado. Só ele
+  // planeja, agenda, adiciona/remove PC e fecha; o técnico de um item só age
+  // no item dele (ver CycleItemRow). Não-gestor vê tudo em modo leitura.
+  const souGestor = isAdmin || (usersId != null && cycle.responsavel_id === usersId);
+
   // ciclo encerrado não tem mais planejamento nem fechamento pra fazer - só
-  // a aba Computadores (histórico) faz sentido.
+  // a aba Computadores (histórico) faz sentido. Fechamento só pro gestor.
   const abas = cycle.status === "planejamento"
     ? [
         { key: "planejamento", label: "Planejamento" },
         { key: "computadores", label: `Computadores${cycle.itens.length ? ` (${cycle.itens.length})` : ""}` },
-        { key: "fechamento", label: "Fechamento" },
+        ...(souGestor ? [{ key: "fechamento", label: "Fechamento" }] : []),
       ]
     : [{ key: "computadores", label: "Computadores" }];
   const aba = abas.some((a) => a.key === abaSelecionada) ? abaSelecionada : abas[0].key;
@@ -81,6 +90,7 @@ export default function CycleDetailPage() {
           <PlanningChecklist
             cycleId={cycleId}
             itens={cycle.planejamento_itens ?? []}
+            readOnly={!souGestor}
             onChanged={() => mutate()}
           />
         </section>
@@ -88,7 +98,7 @@ export default function CycleDetailPage() {
 
       {aba === "computadores" && (
         <>
-          {cycle.status === "planejamento" && (
+          {cycle.status === "planejamento" && souGestor && (
             <AddItemsSection
               cycleId={cycleId}
               jaNoCiclo={new Set(cycle.itens.map((item) => item.computador_id))}
@@ -120,6 +130,8 @@ export default function CycleDetailPage() {
                         item={item}
                         patrimonio={computerById.get(item.computador_id)?.patrimonio ?? `#${item.computador_id}`}
                         tecnicoNome={tecnicoNome(item.tecnico_id)}
+                        souGestor={souGestor}
+                        meuUserId={usersId}
                         onChanged={() => mutate()}
                       />
                     ))}
@@ -131,7 +143,7 @@ export default function CycleDetailPage() {
         </>
       )}
 
-      {aba === "fechamento" && cycle.status === "planejamento" && (
+      {aba === "fechamento" && cycle.status === "planejamento" && souGestor && (
         <CloseCycleSummary cycleId={cycleId} itens={cycle.itens} onClosed={() => mutate()} />
       )}
     </main>

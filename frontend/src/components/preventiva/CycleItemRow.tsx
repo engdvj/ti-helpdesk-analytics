@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, SquarePen, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarPlus,
+  ClipboardCheck,
+  Eye,
+  SquarePen,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 
-import { Botao } from "@/components/ui/Botao";
-import { useAdmin } from "@/lib/admin-context";
 import { cycles as cyclesApi, type CycleItem } from "@/lib/api";
 
 import { ExecutionChecklist } from "./ExecutionChecklist";
@@ -30,14 +36,20 @@ export function CycleItemRow({
   item,
   patrimonio,
   tecnicoNome,
+  souGestor,
+  meuUserId,
   onChanged,
 }: {
   item: CycleItem;
   patrimonio: string;
   tecnicoNome: string | null;
+  /** admin ou o técnico responsável do ciclo — agenda, remove do ciclo e
+   * reabre checklist finalizado. */
+  souGestor: boolean;
+  /** users_id da sessão atual — pra saber se este item é dele. */
+  meuUserId: number | null;
   onChanged: () => void;
 }) {
-  const { isAdmin } = useAdmin();
   const [modal, setModal] = useState<ActiveModal>(null);
   const [removendo, setRemovendo] = useState(false);
 
@@ -59,6 +71,12 @@ export function CycleItemRow({
   const atrasado = item.status === "confirmado" && item.data_agendada != null && item.data_agendada < new Date().toISOString().slice(0, 10);
   const finalizado = item.status === "concluido" || item.status === "pendente";
 
+  // técnico atribuído a ESTE item: reconfirma véspera, executa e remarca o
+  // item dele (tudo em "confirmado") — nada além disso. O gestor faz tudo.
+  const meuItem = meuUserId != null && item.tecnico_id === meuUserId;
+  const podeAgir = souGestor || meuItem;
+  const temAcao = finalizado || souGestor || (meuItem && item.status === "confirmado");
+
   return (
     <>
       <tr>
@@ -71,44 +89,90 @@ export function CycleItemRow({
         <td style={{ whiteSpace: "nowrap" }}>{item.data_agendada ?? "—"}</td>
         <td>{tecnicoNome ?? "—"}</td>
         <td>
-          {finalizado ? (
-            <button
-              type="button"
-              className="preventiva-icon-btn"
-              onClick={() => setModal("execute")}
-              title={isAdmin ? "Editar checklist" : "Ver checklist"}
-              aria-label={isAdmin ? "Editar checklist" : "Ver checklist"}
-            >
-              {isAdmin ? <SquarePen size={16} /> : <Eye size={16} />}
-            </button>
+          {!temAcao ? (
+            <span style={{ color: "var(--apagado)" }}>—</span>
           ) : (
-            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
-              {item.status === "planejado" && (
-                <Botao variant="secundario" onClick={() => setModal("schedule")}>Agendar</Botao>
-              )}
-              {item.status === "remarcado" && (
-                <Botao variant="secundario" onClick={() => setModal("schedule")}>Reagendar</Botao>
-              )}
-              {item.status === "confirmado" && !reconfirmacaoCompleta(item) && (
-                <Botao variant="secundario" onClick={() => setModal("reconfirm")}>Reconfirmar véspera</Botao>
-              )}
-              {item.status === "confirmado" && reconfirmacaoCompleta(item) && (
-                <Botao variant="primario" onClick={() => setModal("execute")}>Executar</Botao>
-              )}
-              {item.status === "confirmado" && (
-                <Botao onClick={() => setModal("reschedule")}>Remarcar</Botao>
-              )}
-              {isAdmin && (
+            <div className="preventiva-row-actions">
+              {finalizado ? (
                 <button
                   type="button"
-                  className="preventiva-icon-btn is-danger"
-                  onClick={remover}
-                  disabled={removendo}
-                  title="Tirar do ciclo"
-                  aria-label={`Tirar ${patrimonio} do ciclo`}
+                  className="preventiva-icon-btn"
+                  onClick={() => setModal("execute")}
+                  title={souGestor ? "Editar checklist" : "Ver checklist"}
+                  aria-label={souGestor ? "Editar checklist" : "Ver checklist"}
                 >
-                  <Trash2 size={15} />
+                  {souGestor ? <SquarePen size={16} /> : <Eye size={16} />}
                 </button>
+              ) : (
+                <>
+                  {item.status === "planejado" && souGestor && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn"
+                      onClick={() => setModal("schedule")}
+                      title="Agendar"
+                      aria-label={`Agendar ${patrimonio}`}
+                    >
+                      <CalendarPlus size={16} />
+                    </button>
+                  )}
+                  {item.status === "remarcado" && souGestor && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn"
+                      onClick={() => setModal("schedule")}
+                      title="Reagendar"
+                      aria-label={`Reagendar ${patrimonio}`}
+                    >
+                      <CalendarPlus size={16} />
+                    </button>
+                  )}
+                  {item.status === "confirmado" && !reconfirmacaoCompleta(item) && podeAgir && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn"
+                      onClick={() => setModal("reconfirm")}
+                      title="Reconfirmar véspera"
+                      aria-label={`Reconfirmar véspera de ${patrimonio}`}
+                    >
+                      <ClipboardCheck size={16} />
+                    </button>
+                  )}
+                  {item.status === "confirmado" && reconfirmacaoCompleta(item) && podeAgir && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn is-primary"
+                      onClick={() => setModal("execute")}
+                      title="Executar preventiva"
+                      aria-label={`Executar preventiva de ${patrimonio}`}
+                    >
+                      <Wrench size={16} />
+                    </button>
+                  )}
+                  {item.status === "confirmado" && podeAgir && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn"
+                      onClick={() => setModal("reschedule")}
+                      title="Remarcar"
+                      aria-label={`Remarcar ${patrimonio}`}
+                    >
+                      <CalendarClock size={16} />
+                    </button>
+                  )}
+                  {souGestor && (
+                    <button
+                      type="button"
+                      className="preventiva-icon-btn is-danger"
+                      onClick={remover}
+                      disabled={removendo}
+                      title="Tirar do ciclo"
+                      aria-label={`Tirar ${patrimonio} do ciclo`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -126,7 +190,7 @@ export function CycleItemRow({
           cycleId={item.ciclo_id}
           itemId={item.id}
           existingItem={finalizado ? item : undefined}
-          readOnly={finalizado && !isAdmin}
+          readOnly={finalizado && !souGestor}
           onClose={close}
           onDone={done}
         />

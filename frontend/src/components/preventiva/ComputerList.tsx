@@ -15,6 +15,7 @@ export function ComputerList({
   refreshKey = 0,
   setorId: lockedSetorId,
   onChanged,
+  podeEditar = false,
 }: {
   refreshKey?: number;
   /** Quando definido, a lista fica travada nesse setor e o filtro/coluna de
@@ -23,6 +24,9 @@ export function ComputerList({
   /** Chamado depois de editar/transferir/baixar um PC — o pai revalida o que
    * depende disso (contagem no cabeçalho do setor). */
   onChanged?: () => void;
+  /** Sem isto (default): lista só-leitura — some a coluna Ações e o modal de
+   * edição. Só o admin recebe `true` (inventário é só do admin). */
+  podeEditar?: boolean;
 }) {
   const { mutate: globalMutate } = useSWRConfig();
   const [page, setPage] = useState(1);
@@ -112,7 +116,7 @@ export function ComputerList({
               {showSetor && <col style={{ width: "19%" }} />}
               <col style={{ width: showSetor ? "17%" : "21%" }} />
               <col style={{ width: showSetor ? "13%" : "16%" }} />
-              <col style={{ width: showSetor ? "14%" : "16%" }} />
+              {podeEditar && <col style={{ width: showSetor ? "14%" : "16%" }} />}
             </colgroup>
             <thead>
               <tr>
@@ -121,7 +125,7 @@ export function ComputerList({
                 {showSetor && <SortHeader col="setor" label="Setor" active={sortCol} dir={sortDir} onSort={ordenar} />}
                 <th>Próxima manutenção</th>
                 <th className="preventiva-cell-center">Saúde</th>
-                <th>Ações</th>
+                {podeEditar && <th>Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -151,17 +155,19 @@ export function ComputerList({
                       </span>
                     )}
                   </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="preventiva-icon-btn"
-                      onClick={(e) => { e.stopPropagation(); setEditando(computer); }}
-                      title="Editar computador"
-                      aria-label="Editar computador"
-                    >
-                      <SquarePen size={16} />
-                    </button>
-                  </td>
+                  {podeEditar && (
+                    <td>
+                      <button
+                        type="button"
+                        className="preventiva-icon-btn"
+                        onClick={(e) => { e.stopPropagation(); setEditando(computer); }}
+                        title="Editar computador"
+                        aria-label="Editar computador"
+                      >
+                        <SquarePen size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -182,16 +188,21 @@ export function ComputerList({
       {detalhe != null && (
         <ComputerDetailModal
           computerId={detalhe}
+          podeEditar={podeEditar}
           onClose={() => setDetalhe(null)}
-          onEditar={() => {
-            const alvo = data?.items.find((c) => c.id === detalhe) ?? null;
-            setDetalhe(null);
-            setEditando(alvo);
-          }}
+          onEditar={
+            podeEditar
+              ? () => {
+                  const alvo = data?.items.find((c) => c.id === detalhe) ?? null;
+                  setDetalhe(null);
+                  setEditando(alvo);
+                }
+              : undefined
+          }
         />
       )}
 
-      {editando && (
+      {editando && podeEditar && (
         <EditComputerModal
           computer={editando}
           sectors={sectors ?? []}

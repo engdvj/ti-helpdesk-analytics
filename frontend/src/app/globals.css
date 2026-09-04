@@ -4852,6 +4852,21 @@ select.tecnico-snapshot-mode option {
 .preventiva-icon-btn:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
 .preventiva-icon-btn:disabled { opacity: 0.5; cursor: default; }
 .preventiva-icon-btn.is-danger:hover { color: var(--critico); border-color: var(--critico); }
+/* ação primária da linha (Executar) - destaca sem virar botão de texto */
+.preventiva-icon-btn.is-primary {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: var(--superficie);
+}
+.preventiva-icon-btn.is-primary:hover { color: var(--superficie); filter: brightness(1.08); }
+
+/* grupo de ações na coluna "Ações" das tabelas da preventiva */
+.preventiva-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
 
 /* multi-seleção de setores em "Adicionar computadores ao ciclo" */
 .preventiva-sector-picker {

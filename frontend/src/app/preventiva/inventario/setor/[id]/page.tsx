@@ -8,11 +8,13 @@ import useSWR from "swr";
 import { ComputerForm } from "@/components/preventiva/ComputerForm";
 import { ComputerList } from "@/components/preventiva/ComputerList";
 import { sectors as sectorsApi } from "@/lib/api";
+import { useAdmin } from "@/lib/admin-context";
 
 export default function SetorInventarioPage() {
   const params = useParams<{ id: string }>();
   const setorId = Number(params.id);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { isAdmin } = useAdmin();
 
   const { data: setor, error, isLoading, mutate } = useSWR(
     ["sector", setorId],
@@ -53,18 +55,20 @@ export default function SetorInventarioPage() {
         </p>
       </div>
 
-      <section className="sumula-cartao admin-panel" style={{ marginBottom: "1.5rem" }}>
-        <div className="admin-panel-header">
-          <h2>Cadastrar computador neste setor</h2>
-        </div>
-        <ComputerForm lockedSetorId={setorId} onCreated={refresh} />
-      </section>
+      {isAdmin && (
+        <section className="sumula-cartao admin-panel" style={{ marginBottom: "1.5rem" }}>
+          <div className="admin-panel-header">
+            <h2>Cadastrar computador neste setor</h2>
+          </div>
+          <ComputerForm lockedSetorId={setorId} onCreated={refresh} />
+        </section>
+      )}
 
       <section className="sumula-cartao admin-panel">
         <div className="admin-panel-header">
           <h2>Computadores do setor</h2>
         </div>
-        <ComputerList setorId={setorId} refreshKey={refreshKey} onChanged={() => void mutate()} />
+        <ComputerList setorId={setorId} refreshKey={refreshKey} podeEditar={isAdmin} onChanged={() => void mutate()} />
       </section>
     </main>
   );
