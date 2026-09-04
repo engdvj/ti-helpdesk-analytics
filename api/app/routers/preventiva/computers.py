@@ -14,6 +14,7 @@ from api.app.models.computer_hardware import ComputerHardware
 from api.app.models.maintenance_cycle_item import MaintenanceCycleItem
 from api.app.models.sector import Sector
 from api.app.routers.auth import require_session
+from api.app.routers.preventiva._shared import require_admin_session
 from api.app.schemas.computer import (
     ComputerCreate,
     ComputerDetailOut,
@@ -41,7 +42,7 @@ class ComputerPage(BaseModel):
     "/computers",
     response_model=ComputerOut,
     status_code=201,
-    dependencies=[Depends(require_session)],
+    dependencies=[Depends(require_admin_session)],
 )
 def create_computer(payload: ComputerCreate, db: Session = Depends(get_db)):
     if db.get(Sector, payload.setor_atual_id) is None:
@@ -182,7 +183,7 @@ def get_computer(computer_id: int, db: Session = Depends(get_db)):
 @router.put(
     "/computers/{computer_id}/hardware",
     response_model=ComputerDetailOut,
-    dependencies=[Depends(require_session)],
+    dependencies=[Depends(require_admin_session)],
 )
 def set_computer_hardware(computer_id: int, payload: ComputerHardwareInput, db: Session = Depends(get_db)):
     """Preencher/atualizar o hardware à mão pra um PC que não roda o GLPI Agent
@@ -207,7 +208,7 @@ def set_computer_hardware(computer_id: int, payload: ComputerHardwareInput, db: 
     return _montar_detalhe(db, computer_id)
 
 
-@router.delete("/computers/{computer_id}/hardware", dependencies=[Depends(require_session)])
+@router.delete("/computers/{computer_id}/hardware", dependencies=[Depends(require_admin_session)])
 def delete_computer_hardware(computer_id: int, db: Session = Depends(get_db)):
     """Apaga o hardware informado à mão (volta pra "sem dados", score None).
     Não faz nada pra PC do GLPI (o sync recria)."""
@@ -223,7 +224,7 @@ def delete_computer_hardware(computer_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.patch("/computers/{computer_id}/move", response_model=ComputerOut, dependencies=[Depends(require_session)])
+@router.patch("/computers/{computer_id}/move", response_model=ComputerOut, dependencies=[Depends(require_admin_session)])
 def move_computer(computer_id: int, payload: ComputerMove, db: Session = Depends(get_db)):
     computer = db.get(Computer, computer_id)
     if computer is None:
@@ -238,7 +239,7 @@ def move_computer(computer_id: int, payload: ComputerMove, db: Session = Depends
     return computer
 
 
-@router.patch("/computers/{computer_id}", response_model=ComputerOut, dependencies=[Depends(require_session)])
+@router.patch("/computers/{computer_id}", response_model=ComputerOut, dependencies=[Depends(require_admin_session)])
 def update_computer(computer_id: int, payload: ComputerUpdate, db: Session = Depends(get_db)):
     """Editar computador: corrigir patrimonio/hostname, transferir de setor e
     dar baixa (ativo=false) num unico endpoint. Patrimonio digitado por humano
@@ -280,7 +281,7 @@ def update_computer(computer_id: int, payload: ComputerUpdate, db: Session = Dep
     return computer
 
 
-@router.delete("/computers/{computer_id}", dependencies=[Depends(require_session)])
+@router.delete("/computers/{computer_id}", dependencies=[Depends(require_admin_session)])
 def delete_computer(computer_id: int, db: Session = Depends(get_db)):
     """Hard delete de verdade - apaga o PC (e o hardware dele) da plataforma.
     Bloqueado (409) se o PC está em algum ciclo de preventiva: aí o certo é

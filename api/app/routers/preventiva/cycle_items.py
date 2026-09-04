@@ -63,12 +63,16 @@ def execute_item(
     current: CurrentIdentity = Depends(require_session),
     db: Session = Depends(get_db),
 ):
-    """Tecnico so preenche enquanto o item ainda nao foi finalizado
-    (Confirmado); depois de Concluido/Pendente, so o admin edita - requisito
-    explicito do usuario ("tecnico nao pode editar, admin sim")."""
+    """O tecnico atribuido preenche enquanto o item nao foi finalizado
+    (Confirmado); depois de Concluido/Pendente, so o admin OU o responsavel do
+    ciclo reabrem pra corrigir (o tecnico do item so visualiza)."""
     _item_in_cycle(item, ciclo_id)
-    if item.status in ("concluido", "pendente") and current.subject_type != "admin":
-        raise HTTPException(403, "checklist já finalizado - só o admin pode editar")
+    ciclo = db.get(MaintenanceCycle, item.ciclo_id)
+    pode_reabrir = current.subject_type == "admin" or (
+        ciclo is not None and ciclo.responsavel_id == current.users_id
+    )
+    if item.status in ("concluido", "pendente") and not pode_reabrir:
+        raise HTTPException(403, "checklist já finalizado - só o admin ou o responsável do ciclo edita")
     try:
         return ciclos.executar_item(
             db,
@@ -84,7 +88,7 @@ def execute_item(
             ponto_focal_data=payload.ponto_focal_data,
             proxima_preventiva=payload.proxima_preventiva,
             rascunho=payload.rascunho,
-            permitir_edicao=current.subject_type == "admin",
+            permitir_edicao=pode_reabrir,
         )
     except TransitionPreconditionError as exc:
         raise HTTPException(422, str(exc)) from exc
