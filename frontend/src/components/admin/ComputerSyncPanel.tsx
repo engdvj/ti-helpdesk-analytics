@@ -1,33 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import { useEffect, useRef, useState } from "react";
+import { useSWRConfig } from "swr";
 
 import { Botao } from "@/components/ui/Botao";
 import { useAdmin } from "@/lib/admin-context";
-import { adminApi } from "@/lib/api";
+import { adminApi, type CollectionRun } from "@/lib/api";
 
-/** Gêmeo do SectorSyncPanel - puxa os Computer do GLPI (agent/glpiinventory)
- * pro inventário local. Só leitura: nunca escreve no GLPI (ver
- * services/computer_sync.py). PC sem "Número de inventário" e sem "Usuário"
- * resolvido no GLPI entra sem patrimônio / sem setor pra triar aqui. */
+import { formatDateTime, StatusBadge, SyncHistory } from "./SyncHistory";
+
+/** Importa os Computer do GLPI (agent/glpiinventory) pro inventário local +
+ * hardware pro score de saúde. Só leitura: nunca escreve no GLPI (ver
+ * services/computer_sync.py). Mesma UI de controle + histórico da Coleta. */
 export function ComputerSyncPanel() {
   const { credentials } = useAdmin();
   const { mutate: mutateGlobal } = useSWRConfig();
+  const [active, setActive] = useState<CollectionRun | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const eraAtiva = useRef(false);
 
-  const { data: latest, mutate } = useSWR(
-    credentials ? ["computer-sync-runs", credentials.username] : null,
-    () => adminApi.listCollectionRuns(
-      { page: 1, pageSize: 1, sortBy: "requested_at", sortDir: "desc" },
-      credentials!,
-      "computadores",
-    ),
-  );
-
-  const active = latest?.active ?? null;
-  const last = latest?.items?.[0] ?? null;
+  useEffect(() => {
+    if (eraAtiva.current && !active) {
+      void mutateGlobal((key) => Array.isArray(key) && (key[0] === "computers" || key[0] === "computer"));
+    }
+    eraAtiva.current = active != null;
+  }, [active, mutateGlobal]);
 
   async function run() {
     if (!credentials) return;
@@ -35,11 +33,7 @@ export function ComputerSyncPanel() {
     setError(null);
     try {
       await adminApi.syncComputers(credentials);
-      await mutate();
-      setTimeout(() => {
-        void mutate();
-        void mutateGlobal((key) => Array.isArray(key) && key[0] === "computers");
-      }, 3_000);
+      await mutateGlobal((key) => Array.isArray(key) && key[0] === "collection-runs" && key[1] === "computadores");
     } catch (runError) {
       setError((runError as Error).message);
     } finally {
@@ -48,29 +42,40 @@ export function ComputerSyncPanel() {
   }
 
   return (
-    <section className="sumula-cartao admin-panel">
-      <div className="admin-panel-header admin-collect-header">
-        <div>
-          <h2>Computadores</h2>
-          <p>Importa os computadores do GLPI (GLPI Agent). Só leitura — o setor é atribuído aqui na plataforma.</p>
+    <div className="admin-dashboard-stack">
+      <section className="sumula-cartao admin-panel">
+        <div className="admin-panel-header admin-collect-header">
+          <div>
+            <h2>Computadores</h2>
+            <p>Importa os computadores do GLPI (GLPI Agent). Só leitura — o setor é atribuído aqui na plataforma.</p>
+          </div>
+          {!active && (
+            <Botao variant="primario" onClick={run} disabled={starting}>
+              {starting ? "Iniciando..." : "Sincronizar computadores"}
+            </Botao>
+          )}
         </div>
-        <Botao variant="primario" onClick={run} disabled={starting || Boolean(active)}>
-          {starting ? "Iniciando..." : active ? "Sincronizando..." : "Sincronizar computadores"}
-        </Botao>
-      </div>
 
-      {last && (
-        <p className="admin-panel-result" style={{ color: last.status === "error" ? "var(--critico)" : "var(--apagado)" }}>
-          {last.status === "success" && last.counts
-            ? `Última sincronização: ${last.counts.computadores_criados ?? 0} novos, ${last.counts.computadores_atualizados ?? 0} atualizados` +
-              `${last.counts.sem_setor_resolvido ? ` · ${last.counts.sem_setor_resolvido} sem setor` : ""}` +
-              `${last.counts.sem_patrimonio ? ` · ${last.counts.sem_patrimonio} sem patrimônio` : ""}.`
-            : last.status === "error"
-              ? `Última sincronização falhou: ${last.error ?? "erro sem mensagem"}`
-              : "Sincronização em andamento..."}
-        </p>
-      )}
-      {error && <p className="admin-panel-result is-error">{error}</p>}
-    </section>
+        {active && (
+          <div className="admin-collection-active" role="status">
+            <StatusBadge status={active.status} />
+            <div className="admin-collection-active-copy">
+              <strong>{active.status === "queued" ? "Sincronização aguardando execução" : "Sincronização em andamento"}</strong>
+              <span>Solicitada em {formatDateTime(active.requested_at)} por {active.requested_by}</span>
+            </div>
+            <span className="admin-collection-background-note">Executando em segundo plano</span>
+          </div>
+        )}
+        {error && <p className="admin-panel-result is-error">{error}</p>}
+      </section>
+
+      <SyncHistory
+        tipo="computadores"
+        title="Histórico de sincronizações"
+        description="Cada importação de computadores do GLPI, com contagens (novos, sem setor, sem patrimônio) e falhas."
+        noun={{ singular: "sincronização", plural: "sincronizações" }}
+        onActiveChange={setActive}
+      />
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { CollectionPanel } from "@/components/admin/CollectionPanel";
 import { ComputerSyncPanel } from "@/components/admin/ComputerSyncPanel";
 import { ConfigPresetsPanel } from "@/components/admin/ConfigPresetsPanel";
 import { SectorSyncPanel } from "@/components/admin/SectorSyncPanel";
+import { SyncAllPanel } from "@/components/admin/SyncAllPanel";
 import { Avatar } from "@/components/ui/Avatar";
 import { Botao } from "@/components/ui/Botao";
 import { Tabs } from "@/components/ui/Tabs";
@@ -69,6 +70,7 @@ export default function AdminPage() {
 
       {tab === "coleta" && (
         <div className="admin-dashboard-stack">
+          <SyncAllPanel />
           <CollectionPanel />
           <SectorSyncPanel />
           <ComputerSyncPanel />

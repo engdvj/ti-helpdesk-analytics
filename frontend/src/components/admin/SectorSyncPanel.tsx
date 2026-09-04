@@ -1,32 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import { useEffect, useRef, useState } from "react";
+import { useSWRConfig } from "swr";
 
 import { Botao } from "@/components/ui/Botao";
 import { useAdmin } from "@/lib/admin-context";
-import { adminApi } from "@/lib/api";
+import { adminApi, type CollectionRun } from "@/lib/api";
 
-/** Mesmo padrao do CollectionPanel, mas sem historico paginado/ordenavel -
- * sync de setor e uma acao simples (so precisa saber "ultima rodou quando,
- * quantos criados/atualizados/desativados"), nao justifica uma tabela. */
+import { formatDateTime, StatusBadge, SyncHistory } from "./SyncHistory";
+
+/** Sincroniza os setores (usuários fictícios do grupo "Setores" no GLPI).
+ * Mesma UI de controle + histórico da Coleta - só troca o vocabulário. */
 export function SectorSyncPanel() {
   const { credentials } = useAdmin();
   const { mutate: mutateGlobal } = useSWRConfig();
+  const [active, setActive] = useState<CollectionRun | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const eraAtiva = useRef(false);
 
-  const { data: latest, mutate } = useSWR(
-    credentials ? ["sector-sync-runs", credentials.username] : null,
-    () => adminApi.listCollectionRuns(
-      { page: 1, pageSize: 1, sortBy: "requested_at", sortDir: "desc" },
-      credentials!,
-      "setores",
-    ),
-  );
-
-  const active = latest?.active ?? null;
-  const last = latest?.items?.[0] ?? null;
+  useEffect(() => {
+    if (eraAtiva.current && !active) {
+      void mutateGlobal((key) => Array.isArray(key) && key[0] === "sectors");
+    }
+    eraAtiva.current = active != null;
+  }, [active, mutateGlobal]);
 
   async function run() {
     if (!credentials) return;
@@ -34,13 +32,7 @@ export function SectorSyncPanel() {
     setError(null);
     try {
       await adminApi.syncSectors(credentials);
-      await mutate();
-      // polling simples: sync de setor e rapida (segundos), uma nova
-      // consulta em 3s ja costuma pegar o resultado final.
-      setTimeout(() => {
-        void mutate();
-        void mutateGlobal((key) => Array.isArray(key) && key[0] === "sectors");
-      }, 3_000);
+      await mutateGlobal((key) => Array.isArray(key) && key[0] === "collection-runs" && key[1] === "setores");
     } catch (runError) {
       setError((runError as Error).message);
     } finally {
@@ -49,27 +41,40 @@ export function SectorSyncPanel() {
   }
 
   return (
-    <section className="sumula-cartao admin-panel">
-      <div className="admin-panel-header admin-collect-header">
-        <div>
-          <h2>Setores</h2>
-          <p>Sincroniza os setores do hospital a partir do grupo &quot;Setores&quot; no GLPI.</p>
+    <div className="admin-dashboard-stack">
+      <section className="sumula-cartao admin-panel">
+        <div className="admin-panel-header admin-collect-header">
+          <div>
+            <h2>Setores</h2>
+            <p>Sincroniza os setores do hospital a partir do grupo &quot;Setores&quot; no GLPI.</p>
+          </div>
+          {!active && (
+            <Botao variant="primario" onClick={run} disabled={starting}>
+              {starting ? "Iniciando..." : "Sincronizar setores"}
+            </Botao>
+          )}
         </div>
-        <Botao variant="primario" onClick={run} disabled={starting || Boolean(active)}>
-          {starting ? "Iniciando..." : active ? "Sincronizando..." : "Sincronizar setores"}
-        </Botao>
-      </div>
 
-      {last && (
-        <p className="admin-panel-result" style={{ color: last.status === "error" ? "var(--critico)" : "var(--apagado)" }}>
-          {last.status === "success" && last.counts
-            ? `Última sincronização: ${last.counts.setores_criados ?? 0} criados, ${last.counts.setores_atualizados ?? 0} atualizados, ${last.counts.setores_desativados ?? 0} desativados.`
-            : last.status === "error"
-              ? `Última sincronização falhou: ${last.error ?? "erro sem mensagem"}`
-              : "Sincronização em andamento..."}
-        </p>
-      )}
-      {error && <p className="admin-panel-result is-error">{error}</p>}
-    </section>
+        {active && (
+          <div className="admin-collection-active" role="status">
+            <StatusBadge status={active.status} />
+            <div className="admin-collection-active-copy">
+              <strong>{active.status === "queued" ? "Sincronização aguardando execução" : "Sincronização em andamento"}</strong>
+              <span>Solicitada em {formatDateTime(active.requested_at)} por {active.requested_by}</span>
+            </div>
+            <span className="admin-collection-background-note">Executando em segundo plano</span>
+          </div>
+        )}
+        {error && <p className="admin-panel-result is-error">{error}</p>}
+      </section>
+
+      <SyncHistory
+        tipo="setores"
+        title="Histórico de sincronizações"
+        description="Cada execução do sync de setores, com contagens e diagnóstico de falha."
+        noun={{ singular: "sincronização", plural: "sincronizações" }}
+        onActiveChange={setActive}
+      />
+    </div>
   );
 }
