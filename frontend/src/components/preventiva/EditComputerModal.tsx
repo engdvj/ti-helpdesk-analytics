@@ -8,6 +8,10 @@ import { computers as computersApi, type Computer, type Sector } from "@/lib/api
 
 import { ordenarUnidades } from "./SortHeader";
 
+/** `unidade_slug` dos setores transversais (TI, Manutenção Predial, Manutenção
+ * de Equipamentos) - servem qualquer unidade, ver setor_sync.py::unidade_extra. */
+const UNIDADE_TRANSVERSAL = "geral";
+
 export function EditComputerModal({
   computer,
   sectors,
@@ -28,22 +32,30 @@ export function EditComputerModal({
   const [error, setError] = useState<string | null>(null);
 
   // escolhe a unidade primeiro (HGVC/UPA) e o <select> de setor mostra só os
-  // dessa unidade - senão são 100+ setores numa lista só.
-  const unidades = Array.from(new Set(sectors.map((s) => s.unidade_slug))).sort(ordenarUnidades);
+  // dessa unidade - senão são 100+ setores numa lista só. Setores transversais
+  // (TI, manutenções - `unidade_slug === "geral"`) não têm unidade própria:
+  // ficam de fora do seletor de unidade e aparecem sempre na lista de setor.
+  const unidadesReais = Array.from(new Set(sectors.map((s) => s.unidade_slug)))
+    .filter((u) => u !== UNIDADE_TRANSVERSAL)
+    .sort(ordenarUnidades);
   const unidadeDoSetorAtual = sectors.find((s) => s.id_glpi === computer.setor_atual_id)?.unidade_slug ?? null;
-  const [unidadeSel, setUnidadeSel] = useState<string | null>(unidadeDoSetorAtual);
-  const unidade = unidadeSel ?? unidadeDoSetorAtual ?? unidades[0] ?? "";
+  const unidadeInicial = unidadeDoSetorAtual && unidadeDoSetorAtual !== UNIDADE_TRANSVERSAL ? unidadeDoSetorAtual : null;
+  const [unidadeSel, setUnidadeSel] = useState<string | null>(unidadeInicial);
+  const unidade = unidadeSel ?? unidadeInicial ?? unidadesReais[0] ?? "";
 
-  // setores ativos da unidade escolhida + o setor atual (mesmo inativo / de
-  // outra unidade, enquanto for o setor deste PC).
+  // setores ativos da unidade escolhida + os transversais + o setor atual
+  // (mesmo inativo / de outra unidade, enquanto for o setor deste PC).
   const opcoesSetor = sectors.filter(
-    (s) => s.id_glpi === computer.setor_atual_id || (s.ativo && s.unidade_slug === unidade),
+    (s) =>
+      s.id_glpi === computer.setor_atual_id ||
+      (s.ativo && (s.unidade_slug === unidade || s.unidade_slug === UNIDADE_TRANSVERSAL)),
   );
 
   function trocarUnidade(nova: string) {
     setUnidadeSel(nova);
     const atual = sectors.find((s) => s.id_glpi === setorId);
-    if (atual && atual.unidade_slug !== nova) setSetorId("");
+    // troca de unidade não desmarca um setor transversal (serve qualquer uma).
+    if (atual && atual.unidade_slug !== nova && atual.unidade_slug !== UNIDADE_TRANSVERSAL) setSetorId("");
   }
 
   const patrimonioLimpo = patrimonio.trim();
@@ -100,11 +112,11 @@ export function EditComputerModal({
           Hostname
           <input value={hostname} onChange={(e) => setHostname(e.target.value)} placeholder="opcional" />
         </label>
-        {unidades.length > 1 && (
+        {unidadesReais.length > 1 && (
           <label>
             Unidade
             <select value={unidade} onChange={(e) => trocarUnidade(e.target.value)}>
-              {unidades.map((u) => (
+              {unidadesReais.map((u) => (
                 <option key={u} value={u}>{u.toUpperCase()}</option>
               ))}
             </select>
@@ -116,7 +128,9 @@ export function EditComputerModal({
             <option value="">Sem setor atribuído</option>
             {opcoesSetor.map((s) => (
               <option key={s.id_glpi} value={s.id_glpi}>
-                {s.nome}{s.unidade_slug !== unidade ? ` (${s.unidade_slug.toUpperCase()})` : ""}{!s.ativo ? " — inativo" : ""}
+                {s.nome}
+                {s.unidade_slug === UNIDADE_TRANSVERSAL ? " (transversal)" : s.unidade_slug !== unidade ? ` (${s.unidade_slug.toUpperCase()})` : ""}
+                {!s.ativo ? " — inativo" : ""}
               </option>
             ))}
           </select>
