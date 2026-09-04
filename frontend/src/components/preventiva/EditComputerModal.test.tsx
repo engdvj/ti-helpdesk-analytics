@@ -29,6 +29,7 @@ const COMPUTER: Computer = {
 const SECTORS: Sector[] = [
   { id_glpi: 1, nome: "Nutrição", entities_id: 2, unidade_slug: "hgvc", ativo: true, qtd_computadores: 1 },
   { id_glpi: 2, nome: "Recepção", entities_id: 12, unidade_slug: "upa", ativo: true, qtd_computadores: 0 },
+  { id_glpi: 3, nome: "Tecnologia da Informação", entities_id: 0, unidade_slug: "geral", ativo: true, qtd_computadores: 0 },
 ];
 
 describe("EditComputerModal", () => {
@@ -63,6 +64,24 @@ describe("EditComputerModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
 
     await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledWith(7, { setor_atual_id: 2 }));
+  });
+
+  it("setor transversal (geral) aparece sem trocar a unidade e não vira opção de unidade", () => {
+    render(<EditComputerModal computer={COMPUTER} sectors={SECTORS} onClose={vi.fn()} onDone={vi.fn()} />);
+
+    // unidade atual é HGVC, mas o setor transversal já está na lista de setor
+    expect(screen.getByRole("option", { name: /Tecnologia da Informação/ })).toBeInTheDocument();
+    // "GERAL" não é uma opção do seletor de unidade
+    expect(screen.queryByRole("option", { name: "GERAL" })).not.toBeInTheDocument();
+  });
+
+  it("transfere para um setor transversal", async () => {
+    render(<EditComputerModal computer={COMPUTER} sectors={SECTORS} onClose={vi.fn()} onDone={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Setor"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledWith(7, { setor_atual_id: 3 }));
   });
 
   it("desativa o computador enviando ativo=false", async () => {
