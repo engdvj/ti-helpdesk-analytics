@@ -1,0 +1,53 @@
+# Compose de producao (VM interna do hospital) - usado pelo job "deploy" de
+# .github/workflows/ci-cd.yml. Espelha docker-compose.yml, mas api/web usam
+# imagem pronta do GHCR em vez de build local (build acontece no runner do
+# GitHub - ver docs/requisitos.md, secao CI/CD). Sem Caddy/HTTPS publico -
+# mesma decisao do compose local, acesso e por IP:porta na rede interna.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ti_analytics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ti_analytics}
+      POSTGRES_DB: ${POSTGRES_DB:-ti_analytics}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ti_analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ghcr.io/engdvj/ti-helpdesk-analytics-api:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-ti_analytics}:${POSTGRES_PASSWORD:-ti_analytics}@db:5432/${POSTGRES_DB:-ti_analytics}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3300}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?defina ADMIN_USERNAME no .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD no .env}
+      GLPI_URL: ${GLPI_URL:?defina GLPI_URL no .env}
+      GLPI_API_PATH: ${GLPI_API_PATH:-/api.php/v1}
+      GLPI_APP_TOKEN: ${GLPI_APP_TOKEN:?defina GLPI_APP_TOKEN no .env}
+      GLPI_USER_TOKEN: ${GLPI_USER_TOKEN:?defina GLPI_USER_TOKEN no .env}
+      AUTO_COLLECT_MINUTES: ${AUTO_COLLECT_MINUTES:-0}
+    volumes:
+      - ./pipeline/data:/app/pipeline/data
+      - ./pipeline/config:/app/pipeline/config
+    ports:
+      - "8800:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/engdvj/ti-helpdesk-analytics-web:latest
+    restart: unless-stopped
+    ports:
+      - "80:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

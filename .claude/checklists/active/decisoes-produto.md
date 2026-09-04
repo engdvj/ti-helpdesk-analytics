@@ -2,8 +2,6 @@
 
 Não bloqueiam nada — só não foram resolvidas.
 
-- [ ] **Hospedagem definitiva** — hoje só roda local (coleta manual + docker-compose local). Decidir
-      se/quando migra pra um host fixo na rede interna do hospital.
 - [ ] **Automatizar a coleta** — hoje só manual (`ti-analytics coletar` ou `POST /admin/collect`). Se
       o volume justificar, replicar o padrão de scheduler do fifa_analytics (`api/app/scheduler.py`).
 - [ ] **`foi_reaberto` entra no `score_geral`?** — já coletado e exibido no perfil do técnico (aba

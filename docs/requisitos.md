@@ -307,3 +307,66 @@ refinamento de C4 podem entrar na mesma leva de C3 sem trabalho extra relevante.
   técnico passa a só visualizar, somente leitura). Decisão explícita do usuário ("técnico não pode
   editar, admin sim") — o formulário de execução ganhou abas (Checklist/Resultado/Validação) nessa
   mesma rodada, pra ficar organizado com os campos extras de correção.
+
+---
+
+## CI/CD — Deploy automático pra VM
+
+**Origem**: pedido do usuário — VM já provisionada na rede interna do hospital (10.17.132.99,
+Ubuntu Server, Docker instalado), faltava só automatizar o que hoje é feito manualmente
+(`docker compose up -d --build`). Resolve o item "Hospedagem definitiva" que estava em
+`.claude/checklists/active/decisoes-produto.md`.
+
+**Sem UI** — feature de infraestrutura pura.
+
+**Referência real, não hipotética**: `engdvj/progest` já roda em produção numa outra VM da mesma
+rede interna do hospital (10.17.133.34) com exatamente este padrão — build no runner hospedado do
+GitHub, publica no GHCR, e um runner **self-hosted** instalado na própria VM só puxa a imagem
+pronta e sobe via `docker compose`. Adotado aqui porque a VM não tem IP público (rede interna do
+hospital, mesma restrição já documentada no `docker-compose.yml`: "sem Caddy/HTTPS público").
+
+### Regra de negócio
+
+- **Gatilho**: push na branch `master`.
+- **Comportamento esperado** (`.github/workflows/ci-cd.yml`, 4 jobs em sequência):
+  1. `backend` — `pytest -q` (env `DATABASE_URL=sqlite:///./ci.db`, evita precisar de Postgres no
+     runner do GitHub). Bloqueante.
+  2. `frontend` — `tsc --noEmit` (bloqueante) + `vitest run` (bloqueante) + `eslint`
+     (`continue-on-error: true`, informativo — débito de lint pré-existente, mesmo padrão adotado
+     no `fifa_analytics`).
+  3. `build-and-push` — só roda se 1 e 2 passarem e for push (não PR) na `master`. Builda
+     `api/Dockerfile` e `frontend/Dockerfile`, publica em
+     `ghcr.io/engdvj/ti-helpdesk-analytics-{api,web}:latest`. `NEXT_PUBLIC_API_URL` entra como
+     build-arg vindo de uma GitHub Actions **Variable** (`vars.PROD_API_URL`), não hardcoded no
+     workflow — se o IP da VM mudar (risco já anotado em `lan-access.md`, DHCP vs. estático), ajusta
+     num lugar só.
+  4. `deploy` (`runs-on: self-hosted`, roda dentro da própria VM) — login no GHCR com
+     `secrets.GITHUB_TOKEN` (automático), `git fetch/reset --hard origin/master` num checkout fixo
+     em `/opt/ti-helpdesk-analytics`, depois `docker compose -f docker-compose.vm.yml pull && up -d
+     && image prune -f`.
+- **Efeito observável**: stack em produção atualizada minutos após um push em `master` que passa nos
+  testes. Push com teste quebrado nunca chega a publicar imagem nem a tocar na VM.
+
+### Segredos
+
+- **Nenhum GitHub Secret novo.** `secrets.GITHUB_TOKEN` (automático) cobre login no GHCR tanto pra
+  publicar quanto pra puxar a imagem.
+- `GLPI_APP_TOKEN`/`GLPI_USER_TOKEN`/`ADMIN_PASSWORD`/`POSTGRES_PASSWORD` continuam só no `.env` da
+  VM (fora do git, `/opt/ti-helpdesk-analytics/.env`) — nunca gerados nem lidos pelo pipeline.
+  `git reset --hard` não apaga arquivo não versionado, então o `.env` sobrevive a todo deploy.
+
+### Casos de borda
+
+- pytest ou typecheck falha → `build-and-push`/`deploy` nunca rodam (`needs` bloqueia a cadeia).
+- lint falha → não bloqueia (informativo).
+- Push em `master` que só mexe em docs/config → reroda o pipeline inteiro mesmo assim (sem path
+  filter — escopo v1 simples, volume de commits não justifica a complexidade ainda).
+- Runner self-hosted offline (VM desligada, serviço systemd parado) → job `deploy` fica na fila até o
+  runner voltar; sem timeout automático configurado.
+- GHCR package fica privado por padrão (repo é privado) — cobrto pelo `permissions: packages:
+  write/read` do próprio `GITHUB_TOKEN`, sem PAT extra.
+
+### Decisão registrada como resolvida
+
+- **Hospedagem definitiva**: VM interna do hospital (10.17.132.99), Docker + runner self-hosted do
+  GitHub Actions. Remove o item equivalente de `decisoes-produto.md`.
