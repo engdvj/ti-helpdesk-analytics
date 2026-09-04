@@ -214,6 +214,38 @@ def test_prune_old_collections_never_deletes_an_active_run(session_factory):
         assert {r.id for r in remaining} == {old_runs[-1].id}
 
 
+def _make_run(db, tipo, *, status="success", hours_ago=0):
+    run = CollectionRun(
+        id=f"{tipo}-{hours_ago}-{status}",
+        tipo=tipo,
+        status=status,
+        requested_by="auto",
+        requested_at=collection_jobs.utc_now() - timedelta(hours=hours_ago),
+    )
+    db.add(run)
+    db.commit()
+    return run
+
+
+def test_prune_sync_runs_keeps_only_the_most_recent_of_that_tipo(session_factory):
+    with session_factory() as db:
+        for i in range(12):
+            _make_run(db, "setores", hours_ago=12 - i)
+        chamados = _make_run(db, "chamados", hours_ago=99)
+        computadores = _make_run(db, "computadores", hours_ago=99)
+        ativa = _make_run(db, "setores", status="running", hours_ago=-1)
+
+        collection_jobs.prune_sync_runs(db, "setores", keep=10)
+
+        restantes = {r.id for r in db.scalars(select(CollectionRun).where(CollectionRun.tipo == "setores")).all()}
+        # 10 execuções concluídas mais recentes + a que está rodando (nunca apagada)
+        assert len(restantes) == 11
+        assert ativa.id in restantes
+        # não encostou nos outros tipos
+        assert db.get(CollectionRun, chamados.id) is not None
+        assert db.get(CollectionRun, computadores.id) is not None
+
+
 def test_execute_collection_run_prunes_automatically_on_success(tmp_path, session_factory, monkeypatch):
     monkeypatch.setattr(collection_jobs, "RAW_DIR", tmp_path)
     monkeypatch.setattr(collection_jobs, "run_pipeline", lambda: {"chamados_ti": 1})
