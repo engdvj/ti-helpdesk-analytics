@@ -40,7 +40,7 @@ describe("ComputerDetailModal", () => {
 
   it("mostra score, quebra por dimensão e especificações", () => {
     mocks.useSWR.mockReturnValue({ data: BASE });
-    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} />);
+    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} podeEditar />);
 
     expect(screen.getByText("69")).toBeInTheDocument();
     expect(screen.getByText("Atenção")).toBeInTheDocument();
@@ -50,22 +50,33 @@ describe("ComputerDetailModal", () => {
     expect(screen.getByText(/Importado do GLPI \(Computer #1\)/)).toBeInTheDocument();
   });
 
-  it("PC manual sem hardware: estado vazio + botão de informar manualmente", () => {
+  it("PC manual sem hardware: estado vazio + botão de informar manualmente (com podeEditar)", () => {
     mocks.useSWR.mockReturnValue({
       data: { ...BASE, hardware: null, hardware_score: null, hardware_nivel: null, score_componentes: null, id_glpi_computer: null },
     });
-    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} />);
+    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} podeEditar />);
 
     expect(screen.getByText(/não roda o GLPI Agent/)).toBeInTheDocument();
     expect(screen.getByText(/Cadastro manual/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Informar manualmente" })).toBeInTheDocument();
   });
 
-  it("PC do GLPI sem hardware: estado vazio, sem botão manual", () => {
+  it("só-leitura (sem podeEditar): sem 'Informar manualmente' nem 'Editar'", () => {
+    mocks.useSWR.mockReturnValue({
+      data: { ...BASE, hardware: null, hardware_score: null, hardware_nivel: null, score_componentes: null, id_glpi_computer: null },
+    });
+    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} />);
+
+    expect(screen.getByText(/não roda o GLPI Agent/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Informar manualmente" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
+  });
+
+  it("PC do GLPI sem hardware: estado vazio, sem botão manual mesmo com podeEditar", () => {
     mocks.useSWR.mockReturnValue({
       data: { ...BASE, hardware: null, hardware_score: null, hardware_nivel: null, score_componentes: null, id_glpi_computer: 5 },
     });
-    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} />);
+    render(<ComputerDetailModal computerId={7} onClose={vi.fn()} onEditar={vi.fn()} podeEditar />);
 
     expect(screen.getByText(/não foi importado do GLPI Agent/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Informar manualmente" })).not.toBeInTheDocument();
