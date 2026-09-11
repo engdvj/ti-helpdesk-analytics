@@ -111,8 +111,12 @@ jobs:
         # /opt/ti-helpdesk-analytics e um checkout fixo, feito manualmente uma
         # vez na VM (ver docs de setup do runner). O .env de producao mora la
         # fora do git - `git reset --hard` nunca apaga arquivo nao versionado.
+        # safe.directory: o clone foi feito por outro usuario (setup manual) e o
+        # servico do runner roda com outro dono - sem isso o git recusa qualquer
+        # comando nesse diretorio ("dubious ownership"). Idempotente.
         run: |
           set -e
+          git config --global --add safe.directory /opt/ti-helpdesk-analytics
           cd /opt/ti-helpdesk-analytics
           git fetch origin master
           git reset --hard origin/master
